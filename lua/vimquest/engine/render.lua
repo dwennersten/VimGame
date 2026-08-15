@@ -20,6 +20,9 @@ local HL = {
   VimQuestHudBad = { fg = "#e05252", bold = true },
   VimQuestHudDim = { fg = "#6c6880" },
   VimQuestHudText = { fg = "#cfc9dd" },
+  VimQuestPanel = { fg = "#e0dcec", bg = "#1a1826" },
+  VimQuestPanelBorder = { fg = "#7d6bb0", bg = "#1a1826" },
+  VimQuestExit = { fg = "#6fd3bf", bold = true },
 }
 
 function M.setup_highlights()
@@ -67,7 +70,8 @@ function M.open(zone)
     vim.cmd([[syntax clear]])
     vim.cmd([[syntax match VimQuestWall /#/]])
     vim.cmd([[syntax match VimQuestFloor /\./]])
-    vim.cmd([[syntax match VimQuestSign /[A-Za-z0-9!?'",:;<>()-]/]])
+    vim.cmd([[syntax match VimQuestSign /[A-Za-z0-9!?'",:;()-]/]])
+    vim.cmd([[syntax match VimQuestExit /[<>]/]])
   end)
 
   state.buf = buf

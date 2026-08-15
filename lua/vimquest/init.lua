@@ -16,6 +16,9 @@ local input = require("vimquest.engine.input")
 local entity = require("vimquest.engine.entity")
 local tick = require("vimquest.engine.tick")
 local hud = require("vimquest.ui.hud")
+local panel = require("vimquest.ui.panel")
+local dialogue = require("vimquest.ui.dialogue")
+local journal = require("vimquest.ui.journal")
 
 local M = {}
 
@@ -35,6 +38,9 @@ local function set_keymaps(buf)
   map("<Esc><Esc>", function()
     M.quit()
   end, "VimQuest: leave the world")
+  map("<F1>", function()
+    journal.toggle()
+  end, "VimQuest: journal (everything said so far)")
   map("<F2>", function()
     M.toggle_pause()
   end, "VimQuest: pause / resume")
@@ -62,17 +68,71 @@ function M.start(zone_id)
   set_keymaps(state.buf)
 
   state.running = true
-  state.say(zone.intro or "")
+
+  -- Opening briefing: the whole zone's premise and controls, read at your pace.
+  local brief = zone.brief or { zone.intro or "" }
+  state.say(brief)
+  dialogue.show(brief, {
+    title = zone.name,
+    footer = "<CR> begin   -   <F1> journal anytime   -   <F2> pause",
+  })
 
   tick.start()
   render.draw()
   hud.render()
 end
 
+---Zone cleared. Show the summary, then leave or replay.
+---@param ex table exit descriptor from the zone data
+function M.complete(ex)
+  if not state.running or state.dialog_open then
+    return
+  end
+
+  local p = state.player
+  local seconds = math.floor((state.tick_count * config.options.tick_ms) / 1000)
+  local zone_id = state.zone.id
+  local lines = {
+    ex.text or "You step through the portal. The Buffer quiets behind you.",
+    "",
+    ("Zone      %s"):format(state.zone.name),
+    ("Time      %dm %02ds"):format(math.floor(seconds / 60), seconds % 60),
+    ("Keys      %d pressed"):format(#state.keylog),
+    ("Health    %d/%d"):format(p.hp, p.max_hp),
+    ("Journal   %d entries  (<F1> in game to re-read)"):format(#state.journal),
+    "",
+    "Next: operator combat arrives with The Rotwood - x, dw, di\", ca(",
+    "will become attacks, and the map itself becomes editable.",
+  }
+
+  local replay = false
+  local pan
+  pan = panel.open({
+    lines = lines,
+    title = "ZONE CLEARED - " .. state.zone.name,
+    footer = "<CR> leave   -   r replay this zone",
+    close_keys = { "<CR>", "<Esc>", "q" },
+    on_close = function()
+      M.quit()
+      if replay then
+        vim.schedule(function()
+          M.start(zone_id)
+        end)
+      end
+    end,
+  })
+  vim.keymap.set("n", "r", function()
+    replay = true
+    pan.close()
+  end, { buffer = pan.buf, nowait = true, silent = true })
+end
+
 function M.quit()
   if not state.running then
     return
   end
+  dialogue.close()
+  journal.close()
   state.running = false
   tick.stop()
   input.detach()

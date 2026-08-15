@@ -22,7 +22,9 @@ M.player = nil ---@type VimQuestPlayer|nil
 M.keylog = {} ---@type table[]
 M.last_hit_ms = 0
 M.last_exhaust_ms = 0
-M.messages = {} ---@type string[]
+M.messages = {} ---@type string[] last few lines, for the statusline
+M.journal = {} ---@type string[] everything said this run, for the journal panel
+M.dialog_open = false ---@type boolean world is frozen while a panel is up
 M.tick_count = 0
 
 ---Fresh player from config.
@@ -53,13 +55,22 @@ function M.reset()
   M.last_hit_ms = 0
   M.last_exhaust_ms = 0
   M.messages = {}
+  M.journal = {}
+  M.dialog_open = false
   M.tick_count = 0
 end
 
----Push a short message to the on-screen log (kept small on purpose).
----@param msg string
+---Record a message. The statusline keeps only the tail, but the journal keeps
+---everything so nothing has to be read at speed.
+---@param msg string|string[]
 function M.say(msg)
-  table.insert(M.messages, msg)
+  local lines = type(msg) == "table" and msg or { msg }
+  for _, line in ipairs(lines) do
+    if line ~= "" then
+      table.insert(M.journal, line)
+      table.insert(M.messages, line)
+    end
+  end
   while #M.messages > 3 do
     table.remove(M.messages, 1)
   end

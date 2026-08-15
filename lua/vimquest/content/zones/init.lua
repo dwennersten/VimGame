@@ -21,6 +21,7 @@ function M.load(id)
   zone.floor = zone.floor or "."
   zone.entities = {}
   zone.triggers = {}
+  zone.exits = {}
 
   local legend = zone.legend or {}
   local map = {}
@@ -35,7 +36,21 @@ function M.load(id)
         if entry.type == "spawn" then
           zone.spawn = { row = row, col = col }
         elseif entry.type == "trigger" then
-          table.insert(zone.triggers, { row = row, col = col, text = entry.text })
+          table.insert(zone.triggers, {
+            row = row,
+            col = col,
+            text = entry.text,
+            title = entry.title,
+            quiet = entry.quiet,
+          })
+        elseif entry.type == "exit" then
+          table.insert(zone.exits, {
+            row = row,
+            col = col,
+            to = entry.to,
+            title = entry.title,
+            text = entry.text,
+          })
         elseif entry.type == "entity" then
           local spec = vim.tbl_extend("force", vim.deepcopy(entry), { row = row, col = col })
           spec.type = nil

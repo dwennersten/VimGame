@@ -41,8 +41,10 @@ Inside the game:
 | Key | Meaning |
 | --- | --- |
 | `hjkl` `w` `b` `e` `0` `$` `gg` `G` | move (you are the cursor) |
-| `<Esc><Esc>` | leave the world |
+| `<F1>` | journal — re-read every message from this run |
 | `<F2>` | pause |
+| `<CR>` / `<Esc>` | dismiss a panel |
+| `<Esc><Esc>` | leave the world |
 | `:VimQuest` | enter the world |
 | `:VimQuest quit` | stop the game |
 | `:VimQuest zone 00_awakening` | jump to a zone |
@@ -70,11 +72,21 @@ Inside the game:
 | Segment | Contents | Status |
 | --- | --- | --- |
 | S1 | engine core, tick loop, collision, HUD, Zone 0 | ✅ done |
+| S1.1 | dialogue panels, journal, opening briefing, exit portal + zone summary | ✅ done |
 | S2 | operator combat, mobs, skills/XP, saves, cheat panel, Zone 1 "The Rotwood" | next |
 | S3 | hub town, quests, radiant bounties, skill tree UI, first boss | planned |
 | S4 | keystroke-golf scoring, ghost replays, adaptive spawns, spaced repetition | planned |
 | S5 | registers/marks/macros zones, config-quest guild, real-file endgame zones | planned |
 | S6 | tests + CI, `:checkhealth`, docs, daily seeded challenge, achievements | planned |
+
+The living build list is [TODO.md](TODO.md) — checkboxes per segment, with rationale in
+[suggested_features.md](suggested_features.md).
+
+## Finishing a zone
+
+Each zone has an exit portal (`>`). Step onto it and a ZONE CLEARED panel reports your
+time, keystrokes and health, then offers `r` to replay or `<CR>` to leave. Messages never
+scroll away: the world freezes while a panel is open, and `<F1>` reopens the full journal.
 
 ## Contributing content
 

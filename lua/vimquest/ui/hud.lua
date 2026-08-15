@@ -63,12 +63,13 @@ function M.render()
     "%#VimQuestHudText# LVL " .. p.level .. "  XP " .. p.xp,
     "%#VimQuestHudDim#   " .. esc(state.zone and state.zone.name or ""),
     state.paused and "%#VimQuestHudWarn#   [PAUSED]" or "",
-    "%#VimQuestHudDim#   <Esc><Esc> quit",
+    "%#VimQuestHudDim#   <F1> journal  <F2> pause  <Esc><Esc> quit",
   }
   vim.wo[win].winbar = table.concat(parts)
 
   local msg = state.messages[#state.messages] or ""
-  vim.wo[win].statusline = "%#VimQuestHudText# " .. esc(msg)
+  local tail = #state.journal > 0 and ("%#VimQuestHudDim#   [" .. #state.journal .. " in journal - <F1>]") or ""
+  vim.wo[win].statusline = "%#VimQuestHudText# " .. esc(msg) .. tail
 end
 
 return M

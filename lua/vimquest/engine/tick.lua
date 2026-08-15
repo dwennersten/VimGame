@@ -17,6 +17,8 @@ local M = {}
 M.timer = nil
 M.group = vim.api.nvim_create_augroup("VimQuestTick", { clear = true })
 
+---Fire any trigger on this cell. The world freezes and the text waits in a
+---panel until dismissed, so nothing has to be read against the clock.
 ---@param zone table
 ---@param row integer
 ---@param col integer
@@ -25,8 +27,27 @@ local function fire_triggers(zone, row, col)
     if t.row == row and t.col == col and not t._fired then
       t._fired = true
       state.say(t.text)
+      if t.quiet then
+        return
+      end
+      local body = type(t.text) == "table" and vim.deepcopy(t.text) or { t.text }
+      require("vimquest.ui.dialogue").show(body, { title = t.title })
+      return
     end
   end
+end
+
+---@param zone table
+---@param row integer
+---@param col integer
+---@return table|nil
+local function exit_at(zone, row, col)
+  for _, x in ipairs(zone.exits or {}) do
+    if x.row == row and x.col == col then
+      return x
+    end
+  end
+  return nil
 end
 
 local function damage_player(amount, reason)
@@ -45,7 +66,7 @@ local function damage_player(amount, reason)
 end
 
 local function step()
-  if not state.running or state.paused then
+  if not state.running or state.paused or state.dialog_open then
     return
   end
   local win, buf = state.win, state.buf
@@ -63,6 +84,13 @@ local function step()
   local prow, pcol = grid.cursor(win)
 
   fire_triggers(zone, prow, pcol)
+
+  local ex = exit_at(zone, prow, pcol)
+  if ex then
+    require("vimquest").complete(ex)
+    return
+  end
+
   entity.update({ zone = zone, prow = prow, pcol = pcol })
 
   local now = vim.uv.now()
