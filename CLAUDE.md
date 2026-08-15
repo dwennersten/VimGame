@@ -9,8 +9,8 @@ Read these before changing anything:
 | File | What it answers |
 | --- | --- |
 | `DESIGN.md` | **The whole vision and why.** Locked decisions, vim-verb → game-verb mapping, progression model, curriculum map. Read this first. |
-| `TODO.md` | **What to build next.** Segment checklist; S2 has a full build spec at the bottom. |
-| `CONTENT.md` | Zone data schema, behaviours, module map. Needed for any content work. |
+| `TODO.md` | **What to build next.** Segment checklist; S3 has a full build spec at the bottom, and a short "what S2 delivered" section above it that explains how combat works. |
+| `CONTENT.md` | Zone and mob data schema, behaviours, module map. Needed for any content work. |
 | `suggested_features.md` | The 22 accepted features with rationale (F-numbers referenced from TODO). |
 
 ## Working agreement
@@ -40,6 +40,11 @@ Read these before changing anything:
    `engine/tick.lua` freezes the world while it is true. No damage while reading.
 7. **`<Esc><Esc>` always exits.** A real-time game inside someone's editor needs a
    guaranteed escape hatch.
+8. **The map is the truth; the buffer is a view of it.** `engine/combat.lua` repaints from
+   `zone.map` after every edit. This is what makes a wrong strike safe, so never let a
+   feature depend on the buffer holding player edits.
+9. **Never wipe saved progress.** Bumping `SCHEMA_VERSION` in `save/migrate.lua` requires
+   a migration from the previous version in the same commit.
 
 ## Commands
 
@@ -60,13 +65,20 @@ lands in S6.
 
 ```
 lua/vimquest/
-  init.lua        setup/start/quit/complete + keymaps
-  config.lua      every tunable (tick rate, damage, stamina costs)
+  init.lua        setup/start/quit/complete/reset + keymaps
+  config.lua      every tunable (tick rate, damage, stamina, combat, saving)
   state.lua       runtime singleton, say(), reset()
-  engine/         grid, tick, collision, entity, render, input
-  ui/             panel (base), dialogue, journal, hud
-  content/zones/  data files + loader
+  engine/         grid, tick, collision, entity, combat, render, input
+  systems/        skills (skill-by-use xp and levels)
+  save/           init (read/write) + migrate (schema versions)
+  ui/             panel (base), dialogue, journal, cheatsheet, hud
+  content/        mobs, commands, zones/ (data files + loader)
 ```
+
+Two kinds of creature, easy to confuse: **entities** are glyphs drawn over the map as
+extmarks and they move (`engine/entity.lua`); **text-mobs** are real buffer text and they
+are killed by editing them (`engine/combat.lua`). Entities are the clock, mobs are the
+lesson.
 
 ## About the player
 

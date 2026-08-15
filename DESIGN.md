@@ -89,7 +89,7 @@ HP. This exists to structurally prevent the single worst vim habit. Tunables liv
 | Zone | Name | Teaches | Segment |
 | --- | --- | --- | --- |
 | 0 | The Awakening | cursor-as-player, `hjkl`, walls, stamina, counts | S1 ✅ |
-| 1 | The Rotwood | `x`, `dw`, `de`, `ci"`, `ca(`, `.`, counts as combos | S2 |
+| 1 | The Rotwood | `x`, `dw`, `de`, `ci"`, `ca(`, `dd`, `.`, counts as combos | S2 ✅ |
 | — | Coldbuffer (hub) | safe zone, quests, bounties, skill tree, vendors | S3 |
 | 2 | The Long Ledger | `0 ^ $`, `f t ; ,`, `gg G`, `{ }` under pressure | S3 |
 | 3 | The Nested Vaults | nested text objects, `di(` vs `da(`, `2ci(` boss | S3 |
@@ -110,10 +110,18 @@ Mastery of a band is measured by keystroke-golf par (S4), not by completion.
   numbers. Nobody should count columns.
 - **One state singleton** (`state.lua`), reset on quit. Saves serialise a subset with a
   `schema_version` so updates never wipe progress.
-- **Panels are one component** (`ui/panel.lua`). Dialogue, journal, zone-complete, and
-  later the cheat panel and skill tree all build on it, so freeze-the-world behaviour and
-  key handling stay consistent.
+- **Panels are one component** (`ui/panel.lua`). Dialogue, journal, cheatsheet,
+  zone-complete, and later the skill tree all build on it, so freeze-the-world behaviour
+  and key handling stay consistent.
 - **Every panel freezes the world.** Reading is never punished.
+- **Combat judges the buffer, not the keystrokes.** Whether something died is decided by
+  looking at what changed in the buffer; the keylog only decides *which* command earned the
+  credit. Judging by keystrokes would mean picking one blessed way to perform each edit,
+  which is exactly the opposite of teaching fluency.
+- **The authored map is the source of truth; the buffer is a view of it.** Every edit is
+  followed by a repaint from `zone.map`. This is not a safety net bolted on — it is the
+  reason a beginner can flail at the text without consequence, which the whole design
+  depends on. Nothing may rely on player edits persisting in the buffer.
 
 ## 7. Playtest findings
 
@@ -124,6 +132,16 @@ Kept so the same ground is not re-litigated.
   S1.1 with exit portals, a ZONE CLEARED summary, modal dialogue panels, an opening
   briefing, and the `<F1>` journal. **Lesson: any text longer than a few words needs a
   panel, and every zone needs a visible, stated goal.**
+
+### Two engine facts worth not rediscovering
+
+- `vim.on_key` reports Neovim's **internal** key expansion as well as what the player
+  pressed — pressing `x` feeds `x`, `d`, `l`. Only keys with a non-empty `typed` argument
+  are player input. Getting this wrong overcharges stamina and makes combat misread every
+  command, and it will matter again for keystroke-golf par in S4.
+- Strikes must be judged by **byte region** (`on_bytes`), not by comparing text. Deleting
+  one mob shifts the rest of its line, and content comparison then reports every mob to its
+  right as attacked.
 
 ## 8. Open questions for later
 

@@ -41,13 +41,16 @@ Inside the game:
 | Key | Meaning |
 | --- | --- |
 | `hjkl` `w` `b` `e` `0` `$` `gg` `G` | move (you are the cursor) |
+| `x` `dw` `di"` `ca(` `dd` `3dw` `.` | attack (the mob decides which one works) |
 | `<F1>` | journal — re-read every message from this run |
 | `<F2>` | pause |
+| `<F3>` | cheatsheet — every command you have learned, plus your skill levels |
 | `<CR>` / `<Esc>` | dismiss a panel |
 | `<Esc><Esc>` | leave the world |
 | `:VimQuest` | enter the world |
 | `:VimQuest quit` | stop the game |
-| `:VimQuest zone 00_awakening` | jump to a zone |
+| `:VimQuest zone 01_rotwood` | jump to a zone |
+| `:VimQuest reset` | erase saved progress (asks first) |
 
 ### As a plugin in your own config
 
@@ -57,11 +60,16 @@ Inside the game:
 
 ## Design
 
-- **Text is the world.** Walls block the cursor, `f<char>`/`$` are blink-dashes, and from
-  segment S2 operators are attacks: `dw` kills a word-mob, `di"` a caged demon, `ca(` a
-  bracket beast, `3dw` is a three-hit combo.
+- **Text is the world.** Walls block the cursor, `f<char>`/`$` are blink-dashes, and
+  operators are attacks: `dw` kills a blight-word, `di"` a caged imp, `ca(` a bracket troll,
+  `dd` a line-wraith, `3dw` a swarm. The engine watches the *buffer*, not your keystrokes,
+  so any path that produces the right edit counts.
+- **Wrong edits are free.** The authored map is the source of truth and the buffer is only
+  a view of it, so a miss repaints the world and costs a little stamina. You cannot break
+  anything by experimenting — which is the point.
 - **Skill-by-use progression.** Using motions levels Motion; using operators levels
-  Operator. Levels grant perk points that unlock abilities and zones.
+  Operator; text objects and counts have their own tracks. Levels grant perk points that
+  unlock abilities and zones.
 - **Stamina punishes spam.** Mashing `jjjjjj` drains stamina and eventually costs HP;
   `5j` or `}` is nearly free. The economy is designed to prevent the worst vim habit.
 - **Radiant bounties** give 5–10 minute pop-in sessions; zones and bosses give long ones.
@@ -73,8 +81,8 @@ Inside the game:
 | --- | --- | --- |
 | S1 | engine core, tick loop, collision, HUD, Zone 0 | ✅ done |
 | S1.1 | dialogue panels, journal, opening briefing, exit portal + zone summary | ✅ done |
-| S2 | operator combat, mobs, skills/XP, saves, cheat panel, Zone 1 "The Rotwood" | next |
-| S3 | hub town, quests, radiant bounties, skill tree UI, first boss | planned |
+| S2 | operator combat, mobs, skills/XP, saves, cheat panel, Zone 1 "The Rotwood" | ✅ done |
+| S3 | hub town, quests, radiant bounties, skill tree UI, first boss | next |
 | S4 | keystroke-golf scoring, ghost replays, adaptive spawns, spaced repetition | planned |
 | S5 | registers/marks/macros zones, config-quest guild, real-file endgame zones | planned |
 | S6 | tests + CI, `:checkhealth`, docs, daily seeded challenge, achievements | planned |
@@ -84,7 +92,7 @@ Inside the game:
 | File | Contents |
 | --- | --- |
 | [DESIGN.md](DESIGN.md) | The vision: locked decisions, vim-verb → game-verb mapping, progression model, curriculum map, playtest findings |
-| [TODO.md](TODO.md) | Build checklist per segment, plus a full S2 build spec |
+| [TODO.md](TODO.md) | Build checklist per segment, plus a full S3 build spec |
 | [CONTENT.md](CONTENT.md) | Zone schema, entity behaviours, module map |
 | [CLAUDE.md](CLAUDE.md) | Orientation and hard invariants for an AI session |
 | [suggested_features.md](suggested_features.md) | The 22 accepted features and why |
@@ -92,8 +100,14 @@ Inside the game:
 ## Finishing a zone
 
 Each zone has an exit portal (`>`). Step onto it and a ZONE CLEARED panel reports your
-time, keystrokes and health, then offers `r` to replay or `<CR>` to leave. Messages never
-scroll away: the world freezes while a panel is open, and `<F1>` reopens the full journal.
+time, keystrokes, kills and skill levels, then offers `n` for the next zone, `r` to replay
+or `<CR>` to leave. Messages never scroll away: the world freezes while a panel is open,
+and `<F1>` reopens the full journal.
+
+Progress — skill levels, xp, zones cleared — is saved to
+`stdpath("data")/vimquest/save.json` and restored on the next run. `:VimQuest reset` erases
+it. That file is the **only** thing VimQuest ever writes; game buffers are scratch and your
+own files are never touched.
 
 ## Contributing content
 
