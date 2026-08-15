@@ -1,8 +1,11 @@
 # VimQuest build list
 
 The working checklist. Tick items as they land; each segment ends with a commit and a
-playable build. Feature rationale lives in [suggested_features.md](suggested_features.md)
-(F-numbers below refer to it); authoring rules live in [CONTENT.md](CONTENT.md).
+playable build. Vision and locked decisions live in [DESIGN.md](DESIGN.md); session
+orientation in [CLAUDE.md](CLAUDE.md); feature rationale in
+[suggested_features.md](suggested_features.md) (F-numbers below refer to it); authoring
+rules in [CONTENT.md](CONTENT.md). **A full build spec for S2 is at the bottom of this
+file.**
 
 **Convention:** pick the next unchecked item in the lowest open segment. Anything marked
 `[blocked]` needs a decision from Dan first.
@@ -88,6 +91,64 @@ playable build. Feature rationale lives in [suggested_features.md](suggested_fea
 - [ ] Telescope integration as in-world scrying (F20)
 - [ ] Sound-free "juice" pass: screen shake via winbar, damage flashes, death animation
 - [ ] Difficulty presets (relaxed / standard / brutal)
+
+---
+
+## S2 build spec — start here
+
+Goal: **operators become attacks.** After S2 the player can kill things by editing text
+correctly under time pressure, earns skill levels for doing it, and keeps progress between
+sessions.
+
+### The central mechanic
+
+Mobs are literally text in the map buffer. Killing one means performing the *correct
+operator + motion* while the cursor is on it. The engine watches for buffer changes rather
+than trying to parse keystrokes — that way any equivalent keystroke path counts, which is
+what real fluency looks like.
+
+Implementation sketch:
+
+1. Unlock `modifiable` on the game buffer while the player is in a combat zone.
+2. Attach `nvim_buf_attach` (or `on_bytes`) to receive every edit.
+3. On each change, diff the affected region against the zone's authored map:
+   - text that was a mob and is now gone → **kill**, award XP for the operator used;
+   - terrain damaged (wall or floor edited) → **miss**: repaint that region from the
+     authored map, small stamina penalty, no HP change.
+4. Repaint is authoritative: `zone.map` is the source of truth, the buffer is a view.
+   This is what makes wrong edits safe and keeps the world consistent.
+5. `state.keylog` (already recording) tells you *which* command was used for skill credit
+   and, later, for keystroke-golf par.
+
+### Mob roster (goes in `content/mobs.lua`)
+
+| Mob | Looks like | Killed by | Teaches |
+| --- | --- | --- | --- |
+| grub | `o` adjacent to you | `x` | single-char delete |
+| word-mob | `rot`, `mold`, `blight` | `dw` / `de` | operator + word motion |
+| quoted imp | `"imp"` | `di"` / `ci"` | quote text objects |
+| bracket troll | `(troll)` | `ca(` / `di(` | bracket text objects |
+| line-wraith | a full corrupted line | `dd` / `d$` | line operators |
+| swarm | three word-mobs in a row | `3dw` | counts |
+
+Give each a `weakness` field naming the accepted operator(s); anything else is a miss.
+
+### Checklist
+
+- [ ] `content/mobs.lua` schema + roster above; zones reference mobs by key
+- [ ] `engine/combat.lua`: buffer-change watcher, kill/miss resolution, terrain repaint
+- [ ] Kill feedback: brief highlight flash, floating XP number, combo counter for `.`
+- [ ] `systems/skills.lua`: Motion / Operator / Text-object skills, level-ups, `ui/` report
+- [ ] `save/init.lua` + `save/migrate.lua`, `schema_version = 1`, `:VimQuest reset`
+- [ ] `ui/cheatsheet.lua` on `<F3>`: unlocked commands, built on `ui/panel.lua`
+- [ ] Zone 1 "The Rotwood" with a mob teaching each roster entry, plus its exit portal
+- [ ] Smoke tests: kill resolution, miss repaint, save round-trip with a version bump
+
+### Acceptance
+
+Play `:VimQuest zone 01_rotwood`: every roster mob can be killed with its intended command,
+a wrong edit repairs the map instead of corrupting it, skills level visibly, and quitting
+and relaunching restores level and XP.
 
 ---
 

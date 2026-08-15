@@ -79,8 +79,15 @@ Inside the game:
 | S5 | registers/marks/macros zones, config-quest guild, real-file endgame zones | planned |
 | S6 | tests + CI, `:checkhealth`, docs, daily seeded challenge, achievements | planned |
 
-The living build list is [TODO.md](TODO.md) — checkboxes per segment, with rationale in
-[suggested_features.md](suggested_features.md).
+### Documentation
+
+| File | Contents |
+| --- | --- |
+| [DESIGN.md](DESIGN.md) | The vision: locked decisions, vim-verb → game-verb mapping, progression model, curriculum map, playtest findings |
+| [TODO.md](TODO.md) | Build checklist per segment, plus a full S2 build spec |
+| [CONTENT.md](CONTENT.md) | Zone schema, entity behaviours, module map |
+| [CLAUDE.md](CLAUDE.md) | Orientation and hard invariants for an AI session |
+| [suggested_features.md](suggested_features.md) | The 22 accepted features and why |
 
 ## Finishing a zone
 
