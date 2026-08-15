@@ -4,8 +4,8 @@ The working checklist. Tick items as they land; each segment ends with a commit 
 playable build. Vision and locked decisions live in [DESIGN.md](DESIGN.md); session
 orientation in [CLAUDE.md](CLAUDE.md); feature rationale in
 [suggested_features.md](suggested_features.md) (F-numbers below refer to it); authoring
-rules in [CONTENT.md](CONTENT.md). **A full build spec for S3 is at the bottom of this
-file.**
+rules in [CONTENT.md](CONTENT.md). **A full build spec for S4 is at the bottom of this
+file**, under short summaries of what S2 and S3 delivered.
 
 **Convention:** pick the next unchecked item in the lowest open segment. Anything marked
 `[blocked]` needs a decision from Dan first.
@@ -45,17 +45,17 @@ file.**
 - [x] Zone 1 "The Rotwood"
 - [x] Smoke tests for combat resolution and save round-trip
 
-## S3 — World loop  ← next
+## S3 — World loop ✅ shipped
 
-- [ ] Hub town "Coldbuffer" — safe zone, no tick damage
-- [ ] Fast travel via marks (`ma` / `'a`) as shrines
-- [ ] `systems/quests.lua` — quest state machine, `ui/questlog.lua`
-- [ ] `systems/bounties.lua` — radiant 5–10 min contracts
-- [ ] `ui/skilltree.lua` — perk points, ability unlocks
-- [ ] `ui/dialogue.lua` NPCs with branching lines
-- [ ] Zones 2–3 + first composition boss (`2ci(`-class combos) (F10)
+- [x] Hub town "Coldbuffer" — safe zone, no tick damage (`safe = true` zone flag)
+- [x] Fast travel via marks (`ma` / `'a`) as shrines
+- [x] `systems/quests.lua` — quest state machine, `ui/questlog.lua` (`<F4>`)
+- [x] `systems/bounties.lua` — radiant 5–10 min contracts, `ui/board.lua`
+- [x] `ui/skilltree.lua` — perk points, ability unlocks (`<F5>`)
+- [x] `ui/converse.lua` NPCs with branching lines, gated on quest state
+- [x] Zones 2–3 + first composition boss (`3ci(` — the Nested Heart) (F10)
 
-## S4 — Learning intelligence
+## S4 — Learning intelligence  ← next
 
 - [ ] `systems/score.lua` — par keystroke counts, 3-star grading (F6)
 - [ ] `systems/replay.lua` — ghost playback of the optimal solution on death (F7)
@@ -118,55 +118,61 @@ command it repeats before matching.
 
 ---
 
-## S3 build spec — start here
+## What S3 delivered (read this before adding systems)
 
-Goal: **a world, not a corridor.** After S3 the player has somewhere to return to, reasons
-to go back out, and a choice about what to train next. This is the segment that turns two
-zones into the Skyrim-shaped loop Dan asked for.
+The world loop: Coldbuffer (hub) → quest or bounty → a zone → back with levels. The map is
+`00_awakening → 01_rotwood → 02_coldbuffer ⇄ {03_ledger, 04_vaults}`.
 
-### The shape of it
+Patterns worth reusing rather than reinventing:
 
-Coldbuffer is the hub: no tick damage, no mobs, NPCs standing on the map who talk when you
-step on them. From there the player takes a quest or a bounty, walks to a zone, and comes
-back with levels. Fast travel is `'a` to a shrine you marked with `ma` — the mechanic is
-literally the vim feature it teaches.
+- **New engine capabilities arrive as named zone flags**, never as a check on a zone id.
+  `safe = true` is the model: `engine/tick.lua` reads it and stops dealing damage, so any
+  future sanctuary gets the behaviour for free.
+- **Systems never know about specific content.** The engine reports events
+  (`quests.on_kill`, `on_zone_cleared`, `on_zone_entered`) and `systems/quests.lua` walks
+  active quests looking for a match. Adding an objective kind is one branch in `advance`
+  and one line in `describe`.
+- **Perks declare what changes; one module knows how.** `systems/perks.lua` recomputes
+  every effect from the owned set, so buying is order-independent and rebalancing a perk
+  never needs a save migration.
+- **`ui/menu.lua` is the one selectable panel.** Conversations, the bounty board and the
+  skill tree are all the same component with different data. Anything that needs a list
+  should use it.
+- **A radiant quest carries its own definition** on the quest record, which is how a bounty
+  survives a save without being written into `content/quests.lua`.
 
-### Checklist
+### S4 build spec — start here
 
-- [ ] Hub zone `02_coldbuffer`: `safe = true` on the zone, honoured by `engine/tick.lua`
-      (no contact damage, no exhaustion bleed) — a new zone flag, not a special case
-- [ ] `systems/quests.lua`: quest state machine (offered → active → complete), objectives
-      expressed as data (`kill n of kind`, `reach zone`, `clear zone`), persisted in `save/`
-- [ ] `ui/questlog.lua` on `<F4>`, built on `ui/panel.lua`
-- [ ] `ui/dialogue.lua` NPC branching: legend `type = "npc"` with a line tree, choices
-      picked with `j`/`k`/`<CR>` — panels already freeze the world
-- [ ] `systems/bounties.lua`: radiant 5–10 minute contracts generated from the mob roster
-      ("clear 5 bracket trolls with `ca(`"), the 10-minute session shape from DESIGN.md
-- [ ] Marks as shrines: a legend `type = "shrine"`; `ma` there registers fast travel, `'a`
-      returns. Teaches marks by making them the only convenient travel
-- [ ] `ui/skilltree.lua`: perk points from character levels, perks as data in
-      `content/perks.lua`, at least one that gates a zone
-- [ ] Zone 2 "The Long Ledger": `0 ^ $`, `f t ; ,`, `gg G`, `{ }` under pressure
-- [ ] Zone 3 "The Nested Vaults": nested text objects, `di(` vs `da(`
-- [ ] First composition boss: a `2ci(`-class mob — needs `weakness` patterns with counts
-      *and* text objects, which the current matcher already supports (F10)
-- [ ] Smoke tests: quest state transitions, bounty generation, save round-trip at
-      `schema_version = 2` (add the migration from 1 in the same commit)
+Goal: **the game notices what you are bad at.** Everything needed is already recorded —
+`state.keylog` has every typed key with a timestamp, and combat knows which command earned
+each kill — so this segment is analysis, not new plumbing.
+
+- [ ] `systems/score.lua`: par keystroke counts per zone, 3-star grading on the zone-clear
+      panel (F6). Par is data on the zone, not a constant in the system.
+- [ ] `systems/replay.lua`: ghost playback of the optimal solution on death (F7). The
+      keylog format was designed for this; it needs a way to author the optimal line.
+- [ ] `systems/adaptive.lua`: per-command accuracy and speed from the keylog. A miss
+      already knows which mob shrugged and what was pressed — record it.
+- [ ] Weakness-seeking spawns, with a toggle. Zones declare *what* can spawn; the system
+      picks. Do not let this reach into zone files.
+- [ ] SM-2-lite review scheduling surfaced as bounties (F9). `systems/bounties.lua` already
+      isolates its choice of mob in `pick` — that is the hook.
+- [ ] Skill report dashboard, built on `ui/panel.lua`.
+- [ ] Smoke tests: par grading, accuracy tracking across a miss and a kill, and a save
+      round-trip at `schema_version = 3` (with its migration from 2, in the same commit).
 
 ### Watch out for
 
-- **`safe = true` must be a zone flag the engine reads**, not an `if zone.id == ...`.
-  Content is data; if the hub needs a capability the engine lacks, add the named flag.
-- **Bumping `schema_version` requires a migration from 1.** `save/migrate.lua` has the
-  shape ready; a save that loses a player's levels is a bug, never an acceptable cost.
-- Zone 2's `f{char}` lessons need landmark characters in the map that are *not* legend
-  characters — the loader paints legend chars over with floor.
+- **`vim.on_key` only sees typed keys now.** That is correct for scoring, but it means a
+  keystroke-golf par must be counted in typed keys too, not in Neovim's internal expansion.
+- **Bumping `schema_version` requires the migration in the same commit.** Non-negotiable.
+- Adaptive spawning must not make a zone unwinnable for a beginner; the toggle from
+  DESIGN.md section 2 is a locked decision, not an optional extra.
 
 ### Acceptance
 
-Start in Coldbuffer, take a bounty from an NPC, mark a shrine with `ma`, clear the bounty
-in the Rotwood, `'a` back, hand it in, and spend a perk point — with levels, quest state
-and perks all surviving a relaunch.
+Clear a zone and get a keystroke-golf grade; fumble a command repeatedly and watch a
+bounty for it appear on the board; open the skill report and see which commands are slow.
 
 ---
 
@@ -176,7 +182,18 @@ and perks all surviving a relaunch.
       only checked by `tests/smoke.lua`, which does cover both zones)
 - [ ] Maps are ASCII-only by design (byte columns must equal screen cells). Unicode tiles
       need a width-aware renderer before they can be used.
-- [ ] `pacer` behaviour is implemented but still unused; Zone 2 is the natural place for it.
+- [ ] `pacer` behaviour is implemented but still unused. The Ledger and the Vaults have no
+      roaming creatures at all, so both are currently puzzle zones with no clock — the
+      first thing to try if either feels flat.
+- [ ] `{` and `}` are advertised nowhere any more: maps have no blank lines, so paragraph
+      motions just reach the top and bottom of the map. Teaching them honestly needs a zone
+      whose rows can be genuinely empty, which the uniform-width rule forbids today.
+- [ ] `travel.attach` binds `m`, `'` and `` ` `` with `getcharstr()`, which blocks the world
+      until the second key arrives. Fine for a two-key command, but do not extend the
+      pattern to anything the player might abandon halfway.
+- [ ] No perk gates a zone yet, though the S3 spec asked for one. Every zone is reachable
+      from Coldbuffer from the start — deliberate for now, since gating hurts the
+      ten-minute session, but revisit if the Vaults turn out to be too much too early.
 - [ ] `u` does nothing in combat: the game buffer sets `undolevels = -1`, which is what
       keeps stray edits from stacking an undo history. The "time-rewind potion" in
       DESIGN.md needs a real decision about undo before it can exist.

@@ -45,11 +45,14 @@ Inside the game:
 | `<F1>` | journal — re-read every message from this run |
 | `<F2>` | pause |
 | `<F3>` | cheatsheet — every command you have learned, plus your skill levels |
+| `<F4>` | quest log |
+| `<F5>` | skill tree — spend perk points |
+| `ma` / `'a` | bind a shrine to a mark / travel back to it from any zone |
 | `<CR>` / `<Esc>` | dismiss a panel |
 | `<Esc><Esc>` | leave the world |
 | `:VimQuest` | enter the world |
 | `:VimQuest quit` | stop the game |
-| `:VimQuest zone 01_rotwood` | jump to a zone |
+| `:VimQuest zone 02_coldbuffer` | jump to a zone |
 | `:VimQuest reset` | erase saved progress (asks first) |
 
 ### As a plugin in your own config
@@ -73,7 +76,24 @@ Inside the game:
 - **Stamina punishes spam.** Mashing `jjjjjj` drains stamina and eventually costs HP;
   `5j` or `}` is nearly free. The economy is designed to prevent the worst vim habit.
 - **Radiant bounties** give 5–10 minute pop-in sessions; zones and bosses give long ones.
+- **Fast travel is marks.** `ma` on a shrine binds it, `'a` returns from any zone. Nothing
+  in the game is a metaphor for a keystroke — it *is* the keystroke.
 - **Adaptive difficulty.** Fumbled commands are tracked and resurface as targeted bounties.
+
+## The world so far
+
+```
+00_awakening  →  01_rotwood  →  02_coldbuffer  ⇄  03_ledger
+   the cursor      operators        the hub      ⇄  04_vaults
+```
+
+**Coldbuffer** is the hub: nothing there can hurt you, and four people are worth talking
+to. The Warden and the Archivist give quests, the Trainer sells perks and patches you up,
+the Board-keeper runs a bounty board that never runs out. Walk into someone to talk.
+
+**The Rotwood** teaches operators, **The Long Ledger** teaches line anchors and character
+search across corridors too long to walk, and **The Nested Vaults** ends in a boss that is
+not a new command — just three known ones said in one breath (`3ci(`).
 
 ## Roadmap
 
@@ -82,8 +102,8 @@ Inside the game:
 | S1 | engine core, tick loop, collision, HUD, Zone 0 | ✅ done |
 | S1.1 | dialogue panels, journal, opening briefing, exit portal + zone summary | ✅ done |
 | S2 | operator combat, mobs, skills/XP, saves, cheat panel, Zone 1 "The Rotwood" | ✅ done |
-| S3 | hub town, quests, radiant bounties, skill tree UI, first boss | next |
-| S4 | keystroke-golf scoring, ghost replays, adaptive spawns, spaced repetition | planned |
+| S3 | hub town, quests, radiant bounties, skill tree, marks, zones 2–3 + boss | ✅ done |
+| S4 | keystroke-golf scoring, ghost replays, adaptive spawns, spaced repetition | next |
 | S5 | registers/marks/macros zones, config-quest guild, real-file endgame zones | planned |
 | S6 | tests + CI, `:checkhealth`, docs, daily seeded challenge, achievements | planned |
 
@@ -92,8 +112,8 @@ Inside the game:
 | File | Contents |
 | --- | --- |
 | [DESIGN.md](DESIGN.md) | The vision: locked decisions, vim-verb → game-verb mapping, progression model, curriculum map, playtest findings |
-| [TODO.md](TODO.md) | Build checklist per segment, plus a full S3 build spec |
-| [CONTENT.md](CONTENT.md) | Zone schema, entity behaviours, module map |
+| [TODO.md](TODO.md) | Build checklist per segment, plus a full S4 build spec |
+| [CONTENT.md](CONTENT.md) | Zone, mob, NPC, quest and perk schemas; behaviours; module map |
 | [CLAUDE.md](CLAUDE.md) | Orientation and hard invariants for an AI session |
 | [suggested_features.md](suggested_features.md) | The 22 accepted features and why |
 

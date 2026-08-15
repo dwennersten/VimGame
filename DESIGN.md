@@ -90,9 +90,9 @@ HP. This exists to structurally prevent the single worst vim habit. Tunables liv
 | --- | --- | --- | --- |
 | 0 | The Awakening | cursor-as-player, `hjkl`, walls, stamina, counts | S1 ✅ |
 | 1 | The Rotwood | `x`, `dw`, `de`, `ci"`, `ca(`, `dd`, `.`, counts as combos | S2 ✅ |
-| — | Coldbuffer (hub) | safe zone, quests, bounties, skill tree, vendors | S3 |
-| 2 | The Long Ledger | `0 ^ $`, `f t ; ,`, `gg G`, `{ }` under pressure | S3 |
-| 3 | The Nested Vaults | nested text objects, `di(` vs `da(`, `2ci(` boss | S3 |
+| — | Coldbuffer (hub) | safe zone, quests, bounties, skill tree, marks | S3 ✅ |
+| 2 | The Long Ledger | `0 ^ $`, `f t ; ,`, `gg G`, counts under pressure | S3 ✅ |
+| 3 | The Nested Vaults | nested text objects, `di(` vs `da(`, `3ci(` boss | S3 ✅ |
 | 4 | The Register Vaults | `y p "a`, marks and fast travel | S5 |
 | 5 | The Ritual Halls | macros: `qa … q`, `@a`, `@@`, counted replays | S5 |
 | 6 | The Transmutation Yard | `:s` with regex, `:g`, ranges | S5 |
@@ -122,6 +122,16 @@ Mastery of a band is measured by keystroke-golf par (S4), not by completion.
   followed by a repaint from `zone.map`. This is not a safety net bolted on — it is the
   reason a beginner can flail at the text without consequence, which the whole design
   depends on. Nothing may rely on player edits persisting in the buffer.
+- **New engine capabilities are named zone flags.** `safe = true` turns off tick damage;
+  `combat = true` unlocks the buffer. A capability expressed as a check on a zone id is a
+  bug in the extension points, not a shortcut.
+- **Systems never know about specific content.** The engine reports events — a kill, a zone
+  cleared, a zone entered — and `systems/quests.lua` decides whether anything cares. This
+  is why a quest is a data file and a bounty can be generated at runtime from the same
+  shape.
+- **Every list is `ui/menu.lua`.** Conversations, the bounty board and the skill tree are
+  one component with different data, so selection behaves identically everywhere. The keys
+  are `j`, `k` and `<CR>`, deliberately: even the menus drill the curriculum.
 
 ## 7. Playtest findings
 
@@ -145,8 +155,13 @@ Kept so the same ground is not re-litigated.
 
 ## 8. Open questions for later
 
-- How much narrative? Currently signpost-flavoured; no NPC dialogue trees until S3.
-- Does the hub need vendors/economy, or are perks enough progression?
-- Should death cost anything beyond a checkpoint return once combat exists?
+- How much narrative? Four NPCs in Coldbuffer carry it now. Whether the Buffer's story
+  wants telling, or whether the world is better left implied, is still open.
+- Does the hub need vendors/economy, or are perks enough progression? Perks landed in S3
+  and no currency exists; nothing so far has felt like it wanted one.
+- Should death cost anything beyond a checkpoint return? Combat exists now and death is
+  still free. That may be right — the stamina economy already applies the pressure.
+- Should any perk gate a zone? S3 chose no: every zone is reachable from Coldbuffer, since
+  a gate would break the ten-minute session. Revisit if the Vaults arrive too early.
 - Multi-file zones (splits as separate rooms) — powerful for teaching windows, but needs a
   renderer that tracks several buffers.

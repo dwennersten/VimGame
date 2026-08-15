@@ -9,7 +9,7 @@ Read these before changing anything:
 | File | What it answers |
 | --- | --- |
 | `DESIGN.md` | **The whole vision and why.** Locked decisions, vim-verb → game-verb mapping, progression model, curriculum map. Read this first. |
-| `TODO.md` | **What to build next.** Segment checklist; S3 has a full build spec at the bottom, and a short "what S2 delivered" section above it that explains how combat works. |
+| `TODO.md` | **What to build next.** Segment checklist; S4 has a full build spec at the bottom, above it short "what S2/S3 delivered" sections explaining how combat and the world loop work. |
 | `CONTENT.md` | Zone and mob data schema, behaviours, module map. Needed for any content work. |
 | `suggested_features.md` | The 22 accepted features with rationale (F-numbers referenced from TODO). |
 
@@ -45,6 +45,8 @@ Read these before changing anything:
    feature depend on the buffer holding player edits.
 9. **Never wipe saved progress.** Bumping `SCHEMA_VERSION` in `save/migrate.lua` requires
    a migration from the previous version in the same commit.
+10. **New engine capabilities are named zone flags**, never a check on a zone id.
+    `safe = true` and `combat = true` are the pattern to copy.
 
 ## Commands
 
@@ -69,11 +71,15 @@ lua/vimquest/
   config.lua      every tunable (tick rate, damage, stamina, combat, saving)
   state.lua       runtime singleton, say(), reset()
   engine/         grid, tick, collision, entity, combat, render, input
-  systems/        skills (skill-by-use xp and levels)
+  systems/        skills, quests, bounties, perks, travel
   save/           init (read/write) + migrate (schema versions)
-  ui/             panel (base), dialogue, journal, cheatsheet, hud
-  content/        mobs, commands, zones/ (data files + loader)
+  ui/             panel + menu (bases), dialogue, journal, cheatsheet,
+                  questlog, skilltree, converse, board, hud
+  content/        mobs, commands, quests, perks, zones/ (data + loader)
 ```
+
+Zone map: `00_awakening → 01_rotwood → 02_coldbuffer ⇄ {03_ledger, 04_vaults}`.
+Coldbuffer is the hub — safe, no clock, four NPCs, a shrine and a bounty board.
 
 Two kinds of creature, easy to confuse: **entities** are glyphs drawn over the map as
 extmarks and they move (`engine/entity.lua`); **text-mobs** are real buffer text and they

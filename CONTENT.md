@@ -44,6 +44,29 @@ return {
 - Positions are authored *in the map*, never as numbers — no counting columns.
 - A legend entry may set `leaves = "x"` to leave a different character behind.
 - An `exit` may set `to = "<zone id>"`; the ZONE CLEARED panel then offers `n` to continue.
+  Adding `travel = true` makes it a doorway instead: no summary, you just walk through.
+
+**Zone flags**
+
+| Flag | Effect |
+| --- | --- |
+| `combat = true` | unlocks the buffer and runs `engine/combat.lua`. Defaults to true if the zone has any text-mobs. |
+| `safe = true` | no contact damage, no exhaustion bleed. The hub uses this. |
+
+A new engine capability should arrive as a flag like these, read by the engine, never as a
+check on a zone id.
+
+**Legend types**
+
+| `type` | Makes | Key fields |
+| --- | --- | --- |
+| `spawn` | where the player starts | — |
+| `trigger` | a signpost that fires once when stepped on | `title`, `text`, `quiet` |
+| `exit` | a portal | `to`, `travel`, `text` |
+| `entity` | a roaming glyph drawn over the map | `kind`, `glyph`, `behaviour`, `speed`, `hp` |
+| `mob` | a text-mob, killed by editing it | `mob` (roster key), `text` |
+| `npc` | someone who talks when you walk into them | `id`, `name`, `dialogue` |
+| `shrine` | a fast-travel waypoint, bound with `ma` | `name` |
 
 Register the id in the `:VimQuest` completion list in `plugin/vimquest.lua`, and add it to
 the zone list in `tests/smoke.lua` so its map is width-checked.
@@ -98,6 +121,64 @@ nothing is a bug, and the smoke test fails on it.
 `zone.map` after every change, so terrain damage and wrong operators cost stamina and
 nothing else. Adding a mob cannot break the map.
 
+## NPCs and conversations
+
+An NPC is a legend entry with a `dialogue` table of nodes. Nodes and choices are data —
+writing a character never means writing code.
+
+```lua
+["w"] = {
+  type = "npc",
+  leaves = "W",                       -- what stands on the map
+  id = "warden",
+  name = "the Warden",
+  dialogue = {
+    start = {
+      text = { "She does not look up." },
+      choices = {
+        { label = "What happened here?", to = "lore" },
+        { label = "I want work.", to = "given", action = { offer = "cut_back_the_rot" } },
+        { label = "It is done.",  to = "paid",  action = { turn_in = "cut_back_the_rot" } },
+        { label = "Nothing." },                       -- no `to` ends the talk
+      },
+    },
+    lore = { text = { "..." }, choices = { { label = "I see." } } },
+  },
+},
+```
+
+**Actions** (`action = { ... }`): `offer = "<quest id>"`, `turn_in = "<quest id>"`,
+`board = true` (bounty board), `perks = true` (skill tree), `heal = true`.
+
+**Conditions**, checked before a choice is shown: `requires_quest`, `requires_done`,
+`hidden_if_done`. An `offer` hides itself once taken; a `turn_in` only appears when every
+objective is met. That covers most of what a quest-giver needs without any flags.
+
+## Quests
+
+`content/quests.lua` holds the hand-written ones; `systems/bounties.lua` generates radiant
+ones with the same shape. Objectives are declarative:
+
+```lua
+objectives = {
+  { kind = "kill",       mob = "word_mob", count = 4, text = "slay 4 blight-words" },
+  { kind = "kill_with",  mob = "quoted_imp", command = 'i"', count = 2 },
+  { kind = "clear_zone", zone = "01_rotwood" },
+  { kind = "reach",      zone = "03_ledger" },
+},
+reward = { skills = { operator = 25 }, perk_points = 1 },
+```
+
+`kill_with` matches its `command` against the keys that landed the kill, which is how "use
+`di"`, not `da"`" becomes an enforceable objective.
+
+## Perks
+
+`content/perks.lua` declares effects; `systems/perks.lua` applies them. The vocabulary is
+`max_hp`, `stamina_regen`, `stamina_cost`, `miss_stamina`, `combo_bonus`, `xp_multiplier`.
+A perk that needs something outside that list needs a new named effect in `systems/`, not
+a function in the content file.
+
 ## Behaviours
 
 Defined in `lua/vimquest/engine/entity.lua` as `M.behaviours.<name>(entity, ctx)` where
@@ -123,11 +204,26 @@ are 1-indexed for rows, so conversion happens only in `engine/grid.lua`.
 | `engine/combat.lua` | buffer watcher, kill/miss resolution, authoritative repaint |
 | `engine/tick.lua` | world clock, damage, triggers |
 | `systems/skills.lua` | skill-by-use xp, levels, character level, skill report |
+| `systems/quests.lua` | objective state machine; the engine only reports events |
+| `systems/bounties.lua` | radiant contracts generated from the mob roster |
+| `systems/perks.lua` | turns declared perk effects into live tunables |
+| `systems/travel.lua` | shrines, marks (`ma`), fast travel (`'a`) |
 | `save/init.lua` | read/write progression under `stdpath("data")/vimquest/` |
 | `save/migrate.lua` | `SCHEMA_VERSION` and forward migrations |
-| `ui/hud.lua` | winbar vitals, foes remaining, combo meter |
+| `ui/hud.lua` | winbar vitals, foes remaining, combo meter, unspent perks |
 | `ui/panel.lua` | the one floating panel; every UI builds on it |
+| `ui/menu.lua` | the one selectable panel; conversations, board, skill tree |
 | `ui/cheatsheet.lua` | `<F3>` command reference, unlocked by use |
+| `ui/questlog.lua` | `<F4>` objectives |
+| `ui/skilltree.lua` | `<F5>` perks |
+| `ui/converse.lua` | NPC dialogue trees |
+| `ui/board.lua` | the bounty board |
 | `content/mobs.lua` | text-mob roster |
 | `content/commands.lua` | what the cheatsheet lists |
+| `content/quests.lua` | hand-written quests |
+| `content/perks.lua` | the skill tree |
 | `content/zones/` | zone data files |
+
+When you add a zone, add its id to `ALL_ZONES` in `tests/smoke.lua`. That list drives the
+structural checks: uniform row widths, a walkable spawn, exits you can stand on that point
+at zones which exist, reachable NPCs and shrines, and no mob embedded in a wall.
