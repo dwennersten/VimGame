@@ -215,6 +215,7 @@ return {
     [">"] = {
       type = "exit",
       leaves = ">",
+      to = "02_coldbuffer",
       text = "The rot thins. You step through, and the wood closes behind you.",
     },
   },

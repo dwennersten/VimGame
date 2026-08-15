@@ -11,7 +11,7 @@ return {
     items = {
       { "h j k l", "one cell left/down/up/right - costs 2 stamina each" },
       { "w b e", "forward/back/end of word - nearly free" },
-      { "{ }", "jump a paragraph (a blank-ish band of the map)" },
+      { "", "a count multiplies any of them: 5j, 3w, 10l" },
     },
   },
   {
@@ -56,7 +56,18 @@ return {
       { "3dw", "one strike, three words - kills swarms" },
       { "5j  10l", "travel far for a single keypress" },
       { "2ci(", "reach through one pair of brackets into the next" },
+      { "3ci(", "three pairs out - the Nested Heart answers to nothing less" },
       { "", "a count in front of a command multiplies it" },
+    },
+  },
+  {
+    title = "Travel",
+    basic = true,
+    items = {
+      { "ma", "stand on a shrine ( ^ ) and bind it to mark a" },
+      { "'a", "return to that shrine from anywhere, in any zone" },
+      { "", "any letter a-z works, so you can bind several places" },
+      { ">", "walk into a portal to travel; in the hub there is no summary" },
     },
   },
   {
@@ -66,6 +77,8 @@ return {
       { "<F1>", "journal - everything said this run" },
       { "<F2>", "pause / resume the world" },
       { "<F3>", "this cheatsheet" },
+      { "<F4>", "quest log" },
+      { "<F5>", "skill tree - spend perk points" },
       { "<Esc><Esc>", "leave the world" },
     },
   },

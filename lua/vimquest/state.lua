@@ -21,11 +21,18 @@ M.entities = {} ---@type table[] roaming overlay creatures (extmarks)
 M.mobs = {} ---@type table[] text-mobs: creatures that ARE buffer text, killed by editing
 M.player = nil ---@type VimQuestPlayer|nil
 M.skills = {} ---@type table<string, {xp:number, level:integer}> persisted between runs
+M.quests = {} ---@type table<string, table> quest records, persisted
+M.perks = {} ---@type table<string, boolean> owned perks, persisted
+M.perk_bonus = 0 ---@type integer perk points granted by quests, persisted
+M.perk_hp = 0 ---@type integer max_hp from perks, derived (see systems/perks.lua)
+M.perk_xp_multiplier = 1 ---@type number xp multiplier from perks, derived
+M.shrines = {} ---@type table<string, {zone:string,row:integer,col:integer}> mark -> place
 M.zones_cleared = {} ---@type table<string, boolean> persisted between runs
 M.stats = { kills = 0, misses = 0, best_combo = 0 } ---@type table persisted totals
 M.combo = 0 ---@type integer consecutive kills inside the combo window
 M.last_kill_ms = 0
 M.last_attack = nil ---@type string|nil last successful attack, so '.' knows what it repeats
+M.talked_to = nil ---@type string|nil npc whose cell you are standing on right now
 M.keylog = {} ---@type table[]
 M.last_hit_ms = 0
 M.last_exhaust_ms = 0
@@ -60,11 +67,18 @@ function M.reset()
   M.mobs = {}
   M.player = nil
   M.skills = {}
+  M.quests = {}
+  M.perks = {}
+  M.perk_bonus = 0
+  M.perk_hp = 0
+  M.perk_xp_multiplier = 1
+  M.shrines = {}
   M.zones_cleared = {}
   M.stats = { kills = 0, misses = 0, best_combo = 0 }
   M.combo = 0
   M.last_kill_ms = 0
   M.last_attack = nil
+  M.talked_to = nil
   M.keylog = {}
   M.last_hit_ms = 0
   M.last_exhaust_ms = 0

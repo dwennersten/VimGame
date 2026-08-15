@@ -17,12 +17,19 @@ local entity = require("vimquest.engine.entity")
 local combat = require("vimquest.engine.combat")
 local tick = require("vimquest.engine.tick")
 local skills = require("vimquest.systems.skills")
+local quests = require("vimquest.systems.quests")
+local perks = require("vimquest.systems.perks")
+local travel = require("vimquest.systems.travel")
 local save = require("vimquest.save")
 local hud = require("vimquest.ui.hud")
 local panel = require("vimquest.ui.panel")
 local dialogue = require("vimquest.ui.dialogue")
 local journal = require("vimquest.ui.journal")
 local cheatsheet = require("vimquest.ui.cheatsheet")
+local questlog = require("vimquest.ui.questlog")
+local skilltree = require("vimquest.ui.skilltree")
+local converse = require("vimquest.ui.converse")
+local board = require("vimquest.ui.board")
 
 local M = {}
 
@@ -51,16 +58,29 @@ local function set_keymaps(buf)
   map("<F3>", function()
     cheatsheet.toggle()
   end, "VimQuest: cheatsheet of everything you have learned")
+  map("<F4>", function()
+    questlog.toggle()
+  end, "VimQuest: quest log")
+  map("<F5>", function()
+    skilltree.toggle()
+  end, "VimQuest: skill tree")
+  -- m / ' / ` become shrine binding and fast travel.
+  travel.attach(buf)
 end
 
 ---@param zone_id string|nil
-function M.start(zone_id)
+---@param opts table|nil { at = {row, col} to override the spawn, brief = false to skip the briefing }
+function M.start(zone_id, opts)
   if state.running then
     vim.notify("VimQuest is already running", vim.log.levels.WARN)
     return
   end
+  opts = opts or {}
 
   local zone = zones.load(zone_id or config.options.start_zone)
+  if opts.at then
+    zone.spawn = { row = opts.at.row, col = opts.at.col }
+  end
 
   state.reset()
   state.player = state.new_player(config.options)
@@ -81,18 +101,50 @@ function M.start(zone_id)
   state.running = true
   -- Unlocks the buffer and paints the text-mobs, but only in a combat zone.
   combat.attach(zone)
+  quests.on_zone_entered(zone.id)
 
   -- Opening briefing: the whole zone's premise and controls, read at your pace.
+  -- Arriving by fast travel skips it; you have been here before.
   local brief = zone.brief or { zone.intro or "" }
   state.say(brief)
-  dialogue.show(brief, {
-    title = zone.name,
-    footer = "<CR> begin   -   <F1> journal   -   <F2> pause   -   <F3> cheatsheet",
-  })
+  if opts.brief ~= false then
+    dialogue.show(brief, {
+      title = zone.name,
+      footer = "<CR> begin   -   <F1> journal   -   <F3> cheatsheet   -   <F4> quests",
+    })
+  end
 
   tick.start()
   render.draw()
   hud.render()
+end
+
+---Move between places without ending the run: a doorway, or a shrine mark.
+---Progress is written before the teardown, so nothing is lost in transit.
+---@param zone_id string
+---@param at table|nil { row, col }
+---@param text string|nil a line to show on arrival
+function M.travel(zone_id, at, text)
+  if not state.running or not zone_id then
+    return
+  end
+  local carried = vim.deepcopy(state.journal)
+  M.quit({ quiet = true })
+  vim.schedule(function()
+    -- Arriving at a shrine you already bound needs no briefing; walking
+    -- through a door into a new zone does.
+    M.start(zone_id, { at = at, brief = at == nil })
+    if not state.running then
+      return
+    end
+    -- The journal is a record of the session, not of one zone.
+    vim.list_extend(carried, state.journal)
+    state.journal = carried
+    if text then
+      state.say(text)
+    end
+    hud.render()
+  end)
 end
 
 ---Zone cleared. Show the summary, then leave or replay.
@@ -109,6 +161,7 @@ function M.complete(ex)
   local next_id = ex.to
 
   state.zones_cleared[zone_id] = true
+  quests.on_zone_cleared(zone_id)
   if config.options.save.autosave then
     save.write()
   end
@@ -166,7 +219,8 @@ function M.complete(ex)
   end
 end
 
-function M.quit()
+---@param opts table|nil { quiet = true } to skip the farewell notification
+function M.quit(opts)
   if not state.running then
     return
   end
@@ -176,6 +230,10 @@ function M.quit()
   dialogue.close()
   journal.close()
   cheatsheet.close()
+  questlog.close()
+  skilltree.close()
+  converse.close()
+  board.close()
   state.running = false
   tick.stop()
   input.detach()
@@ -183,7 +241,9 @@ function M.quit()
   combat.detach()
   render.close()
   state.reset()
-  vim.notify("VimQuest: the Buffer releases you.", vim.log.levels.INFO)
+  if not (opts and opts.quiet) then
+    vim.notify("VimQuest: the Buffer releases you.", vim.log.levels.INFO)
+  end
 end
 
 function M.toggle_pause()

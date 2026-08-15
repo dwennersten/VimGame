@@ -194,6 +194,7 @@ local function kill(mob, cmd)
     state.last_attack = cmd
   end
   flash(mob, xp, state.combo)
+  require("vimquest.systems.quests").on_kill(mob, cmd)
   state.say(("You strike down the %s.  +%d xp%s"):format(
     mob.name,
     xp,

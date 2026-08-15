@@ -8,7 +8,7 @@
 
 local M = {}
 
-M.SCHEMA_VERSION = 1
+M.SCHEMA_VERSION = 2
 
 ---@type table<integer, fun(data: table): table>
 M.migrations = {
@@ -21,6 +21,16 @@ M.migrations = {
       zones_cleared = type(data.zones_cleared) == "table" and data.zones_cleared or {},
       stats = type(data.stats) == "table" and data.stats or {},
     }
+  end,
+
+  -- 1 -> 2 (S3): quests, perks and bound shrines join the save. A version 1
+  -- file predates all three, so they start empty and nothing is lost.
+  [1] = function(data)
+    data.quests = {}
+    data.perks = {}
+    data.perk_bonus = 0
+    data.shrines = {}
+    return data
   end,
 }
 

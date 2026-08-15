@@ -51,12 +51,43 @@ check("zone 0 loads", function()
   assert(zone.combat == false, "zone 0 must stay a read-only zone")
 end)
 
+-- Every zone the game can reach. Adding one here is how it gets validated.
+local ALL_ZONES = { "00_awakening", "01_rotwood", "02_coldbuffer", "03_ledger", "04_vaults" }
+
 check("every zone has uniform row widths", function()
-  for _, id in ipairs({ "00_awakening", "01_rotwood" }) do
+  for _, id in ipairs(ALL_ZONES) do
     local z = zones.load(id)
     local w = #z.map[1]
     for i, line in ipairs(z.map) do
       assert(#line == w, ("%s row %d width %d, expected %d"):format(id, i, #line, w))
+    end
+  end
+end)
+
+check("every zone is internally consistent", function()
+  for _, id in ipairs(ALL_ZONES) do
+    local z = zones.load(id)
+    assert(z.spawn, id .. " has no spawn")
+    assert(grid.walkable(z, z.spawn.row, z.spawn.col), id .. " spawns you inside a wall")
+    assert(#z.exits >= 1, id .. " has no exit - the player could not leave")
+    for _, x in ipairs(z.exits) do
+      assert(grid.walkable(z, x.row, x.col), id .. " has an exit you cannot stand on")
+      if x.to then
+        assert(vim.tbl_contains(ALL_ZONES, x.to), ("%s leads to unknown zone '%s'"):format(id, x.to))
+      end
+    end
+    for _, n in ipairs(z.npcs or {}) do
+      assert(grid.walkable(z, n.row, n.col), id .. " has an unreachable npc: " .. tostring(n.id))
+      assert(n.dialogue and n.dialogue[n.start or "start"], tostring(n.id) .. " has no opening line")
+    end
+    for _, s in ipairs(z.shrines or {}) do
+      assert(grid.walkable(z, s.row, s.col), id .. " has an unreachable shrine")
+    end
+    for _, m in ipairs(z.mobs or {}) do
+      -- Every cell a mob occupies must be walkable, or it cannot be attacked.
+      for c = m.col, m.col + #m.text - 1 do
+        assert(grid.walkable(z, m.row, c), ("%s: %s sits in a wall"):format(id, m.kind))
+      end
     end
   end
 end)
@@ -318,6 +349,252 @@ check("the cheatsheet reflects what has been learned", function()
   assert(not cheatsheet.current and not state.dialog_open, "the cheatsheet did not close")
 end)
 
+--------------------------------------------------------------- quests and perks
+
+local quests = require("vimquest.systems.quests")
+local perks = require("vimquest.systems.perks")
+local bounties = require("vimquest.systems.bounties")
+local travel = require("vimquest.systems.travel")
+local converse = require("vimquest.ui.converse")
+local skilltree = require("vimquest.ui.skilltree")
+local questlog = require("vimquest.ui.questlog")
+
+check("a quest tracks kills and only completes when every objective is met", function()
+  quests.accept("cut_back_the_rot")
+  assert(quests.status("cut_back_the_rot") == quests.ACTIVE, "quest was not accepted")
+  assert(not quests.is_complete("cut_back_the_rot"), "quest completed before anything was done")
+
+  local word = find("word_mob")
+  grid.set_cursor(state.win, word.row, word.col)
+  strike(word, "dw")
+  local progress = state.quests["cut_back_the_rot"].progress
+  assert(progress[1] == 1, "killing a blight-word did not advance the objective, got " .. tostring(progress[1]))
+
+  local grub = find("grub")
+  grid.set_cursor(state.win, grub.row, grub.col)
+  strike(grub, "x")
+  assert(state.quests["cut_back_the_rot"].progress[2] == 1, "the grub objective did not advance")
+  assert(not quests.is_complete("cut_back_the_rot"), "quest completed with objectives outstanding")
+end)
+
+check("kill_with objectives care which command was used", function()
+  local def = {
+    id = "test_precision",
+    name = "Precision",
+    objectives = { { kind = "kill_with", mob = "quoted_imp", command = 'i"', count = 1 } },
+    reward = {},
+  }
+  quests.accept("test_precision", def)
+
+  -- da" kills the imp but takes the cage as well, so it must not count.
+  local imp = find("quoted_imp")
+  grid.set_cursor(state.win, imp.row, imp.col + 1)
+  strike(imp, 'da"')
+  assert(not imp.alive, 'da" did not kill the imp')
+  assert((state.quests["test_precision"].progress[1] or 0) == 0, 'da" was wrongly credited to an i" objective')
+
+  local imp2 = find("quoted_imp")
+  grid.set_cursor(state.win, imp2.row, imp2.col + 1)
+  strike(imp2, 'di"')
+  assert(state.quests["test_precision"].progress[1] == 1, 'di" was not credited')
+  assert(quests.is_complete("test_precision"), "single-objective quest did not complete")
+end)
+
+check("turning in a quest pays out", function()
+  local before = skills.get("textobject").level
+  assert(quests.turn_in("test_precision"), "could not turn in a complete quest")
+  assert(quests.status("test_precision") == quests.TURNED_IN, "status did not change")
+  assert(not quests.turn_in("test_precision"), "a quest was turned in twice")
+  assert(skills.get("textobject").level >= before, "levels went backwards")
+end)
+
+check("bounties are generated from the roster and are stable within a day", function()
+  local first = bounties.board()
+  local second = bounties.board()
+  assert(#first > 0, "the board was empty")
+  assert(#first == #second, "the board changed between two looks at it")
+  for i = 1, #first do
+    assert(first[i].id == second[i].id, "the board is not stable within a session")
+  end
+  local def = first[1]
+  assert(def.objectives[1].count and def.objectives[1].count > 0, "a bounty asked for nothing")
+  quests.accept(def.id, def)
+  assert(quests.status(def.id) == quests.ACTIVE, "bounty was not accepted")
+  -- Once taken, it leaves the board rather than being offered twice.
+  for _, still in ipairs(bounties.board()) do
+    assert(still.id ~= def.id, "an accepted bounty was still on the board")
+  end
+end)
+
+check("perk points come from levels and buy perks", function()
+  state.perk_bonus = 5
+  perks.restore(nil)
+  perks.apply()
+  local available = perks.available()
+  assert(available >= 5, "perk points were not granted, got " .. available)
+
+  local ok = perks.buy("sure_step")
+  assert(ok, "could not buy an affordable perk with no requirements")
+  assert(perks.owned("sure_step"), "the perk was not recorded")
+  assert(perks.available() == available - 1, "the point was not spent")
+  assert(require("vimquest.config").options.stamina_cost.h == 1, "the perk had no effect on stamina cost")
+
+  assert(not perks.buy("sure_step"), "the same perk was bought twice")
+
+  -- A perk whose requirement is not met must refuse, whatever the balance.
+  skills.restore({ operator = { xp = 0, level = 1 } })
+  local bought, why = perks.buy("steady_hand")
+  assert(not bought and why, "a gated perk was sold without its requirement")
+end)
+
+check("perk effects reach the player and reset cleanly", function()
+  perks.restore({ thick_hide = true })
+  perks.apply()
+  local with = state.player.max_hp
+  perks.restore(nil)
+  perks.apply()
+  assert(state.player.max_hp == with - 3, "a removed perk kept giving health")
+end)
+
+check("the quest log and skill tree open, freeze the world, and close", function()
+  for _, ui in ipairs({ questlog, skilltree }) do
+    ui.toggle()
+    assert(state.dialog_open, "a panel did not freeze the world")
+    ui.toggle()
+    assert(not state.dialog_open, "a panel did not release the world")
+  end
+end)
+
+----------------------------------------------------------- nesting and the boss
+
+check("a vault seal ignores di( and opens to 2di(", function()
+  vq.quit()
+  vq.start("04_vaults")
+  dialogue.close()
+
+  local seal = find("vault_seal")
+  local misses = state.stats.misses
+  -- Stand inside the inner pair: ((seal)) -> the 's' is two columns in.
+  grid.set_cursor(state.win, seal.row, seal.col + 3)
+  strike(nil, "di(")
+  assert(seal.alive, "a shallow di( opened the seal")
+  assert(state.stats.misses > misses, "the shallow strike was not a miss")
+  local line = vim.api.nvim_buf_get_lines(state.buf, seal.row, seal.row + 1, false)[1]
+  assert(line:sub(seal.col + 1, seal.col + #seal.text) == seal.text, "the seal was not repainted intact")
+
+  grid.set_cursor(state.win, seal.row, seal.col + 3)
+  strike(seal, "2di(")
+  assert(not seal.alive, "2di( did not open the seal")
+end)
+
+check("the Nested Heart falls only to a three-deep strike", function()
+  local heart = find("vault_heart")
+  grid.set_cursor(state.win, heart.row, heart.col + 4)
+  strike(nil, "2di(")
+  assert(heart.alive, "the Heart fell to a two-deep strike")
+
+  local before = skills.get("count").xp + skills.get("count").level * 1000
+  grid.set_cursor(state.win, heart.row, heart.col + 4)
+  strike(heart, "3ci(")
+  assert(not heart.alive, "3ci( did not kill the Heart")
+  vim.wait(300, function()
+    return vim.api.nvim_get_mode().mode:sub(1, 1) == "n"
+  end, 20)
+  assert(vim.api.nvim_get_mode().mode:sub(1, 1) == "n", "the Heart left the player stuck in insert")
+  local after = skills.get("count").xp + skills.get("count").level * 1000
+  assert(after > before, "the boss taught no counts")
+end)
+
+--------------------------------------------------------------- hub and travel
+
+check("the hub is a safe zone with people in it", function()
+  vq.quit()
+  vq.start("02_coldbuffer")
+  dialogue.close()
+  assert(state.zone.safe, "Coldbuffer is not marked safe")
+  assert(#state.mobs == 0, "the hub has mobs in it")
+  assert(#state.zone.npcs >= 4, "the hub is empty of people")
+  assert(#state.zone.shrines >= 1, "the hub has no shrine")
+  assert(vim.bo[state.buf].modifiable == false, "a non-combat zone must stay locked")
+end)
+
+check("walking into someone starts a conversation, once", function()
+  local npc = state.zone.npcs[1]
+  grid.set_cursor(state.win, npc.row, npc.col)
+  vim.wait(1000, function()
+    return converse.current ~= nil
+  end, 20)
+  assert(converse.current, "no conversation started")
+  assert(state.dialog_open, "a conversation did not freeze the world")
+  converse.close()
+  assert(not converse.current, "the conversation did not close")
+  -- Still standing on them: it must not reopen on the next tick.
+  vim.wait(400, function()
+    return converse.current ~= nil
+  end, 20)
+  assert(not converse.current, "the conversation reopened while standing still")
+end)
+
+check("a shrine binds to a mark and the mark travels", function()
+  local shrine = state.zone.shrines[1]
+  grid.set_cursor(state.win, shrine.row, shrine.col)
+  require("vimquest.engine.collision").set_anchor(shrine.row, shrine.col)
+  assert(travel.mark("a"), "could not bind a shrine while standing on it")
+  assert(state.shrines.a and state.shrines.a.zone == "02_coldbuffer", "the mark was not recorded")
+
+  -- Away from a shrine, m explains itself rather than silently failing.
+  local spawn = state.zone.spawn
+  grid.set_cursor(state.win, spawn.row, spawn.col)
+  require("vimquest.engine.collision").set_anchor(spawn.row, spawn.col)
+  assert(not travel.mark("b"), "a mark took hold away from a shrine")
+  assert(not travel.jump("z"), "an unbound mark travelled somewhere")
+
+  assert(travel.jump("a"), "could not return to a bound shrine in this zone")
+  local row, col = grid.cursor(state.win)
+  assert(row == shrine.row and col == shrine.col, "'a did not land on the shrine")
+end)
+
+check("walking into a hub portal travels with no summary screen", function()
+  local portal
+  for _, x in ipairs(state.zone.exits) do
+    if x.travel and x.to == "01_rotwood" then
+      portal = x
+    end
+  end
+  assert(portal, "the hub has no portal to the Rotwood")
+  grid.set_cursor(state.win, portal.row, portal.col)
+  require("vimquest.engine.collision").set_anchor(portal.row, portal.col)
+  vim.wait(3000, function()
+    return state.running and state.zone and state.zone.id == "01_rotwood"
+  end, 20)
+  assert(state.zone.id == "01_rotwood", "the portal did not carry the player through")
+  assert(#state.mobs > 0, "arrived in the Rotwood with nothing in it")
+
+  -- Back to the hub for the next check, the same way.
+  vq.travel("02_coldbuffer")
+  vim.wait(3000, function()
+    return state.running and state.zone and state.zone.id == "02_coldbuffer"
+  end, 20)
+  assert(state.zone.id == "02_coldbuffer", "could not get back to the hub")
+end)
+
+check("a mark travels across zones", function()
+  vq.travel("01_rotwood")
+  vim.wait(2000, function()
+    return state.running and state.zone and state.zone.id == "01_rotwood"
+  end, 20)
+  assert(state.zone.id == "01_rotwood", "travelling to another zone failed")
+  assert(state.shrines.a, "bound shrines did not survive the journey")
+
+  travel.jump("a")
+  vim.wait(2000, function()
+    return state.running and state.zone and state.zone.id == "02_coldbuffer"
+  end, 20)
+  assert(state.zone.id == "02_coldbuffer", "'a did not cross zones")
+  local row, col = grid.cursor(state.win)
+  assert(row == state.shrines.a.row and col == state.shrines.a.col, "arrived somewhere other than the shrine")
+end)
+
 ----------------------------------------------------------------------- saving
 
 local levels_before, xp_before
@@ -340,6 +617,13 @@ check("progress survives a relaunch", function()
   assert(skills.get("operator").xp == xp_before, "operator xp was not restored")
   assert(state.zones_cleared["00_awakening"], "cleared zones were not restored")
   assert(state.stats.kills > 0, "lifetime kills were not restored")
+  -- S3 progression rides in the same file.
+  assert(quests.status("cut_back_the_rot") == quests.ACTIVE, "an active quest was lost")
+  assert(state.quests["cut_back_the_rot"].progress[1] == 1, "quest progress was lost")
+  assert(quests.status("test_precision") == quests.TURNED_IN, "a finished quest was forgotten")
+  assert(state.quests["test_precision"].def, "a radiant quest lost the definition it carried")
+  assert(perks.owned("thick_hide") == false, "a perk the player does not own came back")
+  assert(state.shrines.a and state.shrines.a.zone == "02_coldbuffer", "a bound shrine was lost")
   -- Mobs are fresh again: progression persists, the world does not.
   assert(#state.mobs >= 12, "the zone did not repopulate")
   local alive = select(1, combat.census())
@@ -359,11 +643,14 @@ check("an older save migrates forward", function()
   local data = assert(save.read())
   assert(data.schema_version == save.SCHEMA_VERSION, "migration did not stamp the new version")
   assert(data.skills.operator.level == 4, "migration lost skill levels")
+  assert(type(data.quests) == "table", "the 1->2 migration did not add quests")
+  assert(type(data.perks) == "table", "the 1->2 migration did not add perks")
 
   vq.start("01_rotwood")
   dialogue.close()
   assert(skills.get("operator").level == 4, "migrated levels did not reach the player")
   assert(state.stats.kills == 99, "migrated totals did not reach the player")
+  assert(next(state.quests) == nil, "a pre-quest save invented quests")
   assert(state.player.max_hp > require("vimquest.config").options.player.max_hp, "levels granted no health")
   vq.quit()
 end)

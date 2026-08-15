@@ -17,7 +17,7 @@ end, {
       return { "start", "quit", "pause", "zone", "reset" }
     end
     if args[2] == "zone" or args[2] == "start" then
-      return { "00_awakening", "01_rotwood" }
+      return { "00_awakening", "01_rotwood", "02_coldbuffer", "03_ledger", "04_vaults" }
     end
     return {}
   end,

@@ -48,6 +48,8 @@ function M.load(id)
   zone.triggers = {}
   zone.exits = {}
   zone.mobs = {}
+  zone.npcs = {}
+  zone.shrines = {}
 
   local legend = zone.legend or {}
   local map = {}
@@ -96,6 +98,7 @@ function M.load(id)
               row = row,
               col = col,
               to = entry.to,
+              travel = entry.travel,
               title = entry.title,
               text = entry.text,
             })
@@ -103,6 +106,18 @@ function M.load(id)
             local spec = vim.tbl_extend("force", vim.deepcopy(entry), { row = row, col = col })
             spec.type = nil
             table.insert(zone.entities, spec)
+          elseif entry.type == "npc" then
+            local npc = vim.tbl_extend("force", vim.deepcopy(entry), { row = row, col = col })
+            npc.type = nil
+            npc.id = npc.id or ("npc_" .. #zone.npcs + 1)
+            table.insert(zone.npcs, npc)
+          elseif entry.type == "shrine" then
+            table.insert(zone.shrines, {
+              row = row,
+              col = col,
+              name = entry.name or "shrine",
+              text = entry.text,
+            })
           end
           chars[c] = entry.leaves or zone.floor
         else

@@ -50,6 +50,21 @@ local function exit_at(zone, row, col)
   return nil
 end
 
+---Walking into someone starts a conversation. The panel freezes the world, so
+---an NPC is never a hazard even in a zone full of them.
+---@param zone table
+---@param row integer
+---@param col integer
+---@return table|nil
+local function npc_at(zone, row, col)
+  for _, n in ipairs(zone.npcs or {}) do
+    if n.row == row and n.col == col then
+      return n
+    end
+  end
+  return nil
+end
+
 local function damage_player(amount, reason)
   local p = state.player
   p.hp = p.hp - amount
@@ -85,9 +100,26 @@ local function step()
 
   fire_triggers(zone, prow, pcol)
 
+  -- One conversation per visit: without this, closing the panel while still
+  -- standing on someone would reopen it on the very next tick.
+  local npc = npc_at(zone, prow, pcol)
+  if npc then
+    if state.talked_to ~= npc.id then
+      state.talked_to = npc.id
+      require("vimquest.ui.converse").start(npc)
+    end
+  else
+    state.talked_to = nil
+  end
+
   local ex = exit_at(zone, prow, pcol)
   if ex then
-    require("vimquest").complete(ex)
+    if ex.travel and ex.to then
+      -- A doorway between places, not the end of a run: no summary, just go.
+      require("vimquest").travel(ex.to, nil, ex.text)
+    else
+      require("vimquest").complete(ex)
+    end
     return
   end
 
@@ -96,24 +128,27 @@ local function step()
   local now = vim.uv.now()
   local p = state.player
 
-  -- Contact damage
-  for _, e in ipairs(state.entities) do
-    if e.hp > 0 and e.row == prow and e.col == pcol then
-      if now - state.last_hit_ms >= config.options.damage.cooldown_ms then
-        state.last_hit_ms = now
-        damage_player(config.options.damage.contact, "The " .. e.name .. " tears at you!")
+  -- A safe zone is a place to think in: the hub, and later any sanctuary.
+  -- It is a zone flag rather than a check on a zone id, so content stays data.
+  if not zone.safe then
+    for _, e in ipairs(state.entities) do
+      if e.hp > 0 and e.row == prow and e.col == pcol then
+        if now - state.last_hit_ms >= config.options.damage.cooldown_ms then
+          state.last_hit_ms = now
+          damage_player(config.options.damage.contact, "The " .. e.name .. " tears at you!")
+        end
+        break
       end
-      break
+    end
+
+    if p.stamina <= 0 then
+      if now - state.last_exhaust_ms >= 1000 then
+        state.last_exhaust_ms = now
+        damage_player(config.options.damage.exhaustion, "Exhausted. Stop mashing hjkl - use w, }, or a count.")
+      end
     end
   end
 
-  -- Stamina: regen always, bleed HP while empty.
-  if p.stamina <= 0 then
-    if now - state.last_exhaust_ms >= 1000 then
-      state.last_exhaust_ms = now
-      damage_player(config.options.damage.exhaustion, "Exhausted. Stop mashing hjkl - use w, }, or a count.")
-    end
-  end
   p.stamina = math.min(p.max_stamina, p.stamina + config.options.player.stamina_regen)
 
   render.draw()

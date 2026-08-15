@@ -68,6 +68,10 @@ function M.render()
   end
   local combo = state.combo > 1 and ("%#VimQuestXp#  COMBO x" .. state.combo) or ""
 
+  -- Unspent perk points nag quietly until they are spent.
+  local points = require("vimquest.systems.perks").available()
+  local unspent = points > 0 and ("%#VimQuestHudGood#  PERKS " .. points) or ""
+
   local parts = {
     "%#VimQuestHudText# VQ ",
     "%#" .. hp_hl(p.hp, p.max_hp) .. "#HP [" .. bar(p.hp, p.max_hp, w) .. "] ",
@@ -76,9 +80,10 @@ function M.render()
     "%#VimQuestHudText# LVL " .. p.level .. "  XP " .. p.xp,
     foes,
     combo,
+    unspent,
     "%#VimQuestHudDim#   " .. esc(state.zone and state.zone.name or ""),
     state.paused and "%#VimQuestHudWarn#   [PAUSED]" or "",
-    "%#VimQuestHudDim#   <F1> journal  <F3> cheatsheet  <Esc><Esc> quit",
+    "%#VimQuestHudDim#   <F3> help  <F4> quests  <F5> perks  <Esc><Esc> quit",
   }
   vim.wo[win].winbar = table.concat(parts)
 

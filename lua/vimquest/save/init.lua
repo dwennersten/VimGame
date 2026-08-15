@@ -33,11 +33,14 @@ end
 ---The current run's progression, ready to serialise.
 ---@return table
 function M.snapshot()
-  local skills = require("vimquest.systems.skills")
   return {
     schema_version = M.SCHEMA_VERSION,
     saved_at = os.time(),
-    skills = skills.serialise(),
+    skills = require("vimquest.systems.skills").serialise(),
+    quests = require("vimquest.systems.quests").serialise(),
+    perks = require("vimquest.systems.perks").serialise(),
+    shrines = require("vimquest.systems.travel").serialise(),
+    perk_bonus = state.perk_bonus,
     player = { xp = state.player and state.player.xp or 0 },
     zones_cleared = vim.deepcopy(state.zones_cleared),
     stats = vim.deepcopy(state.stats),
@@ -88,21 +91,38 @@ end
 ---@return boolean loaded
 function M.load_into_state()
   local skills = require("vimquest.systems.skills")
+  local quests = require("vimquest.systems.quests")
+  local perks = require("vimquest.systems.perks")
+  local travel = require("vimquest.systems.travel")
+
+  -- Start from a clean slate either way, so a failed or missing load leaves a
+  -- consistent new game rather than whatever the last run left behind.
   skills.restore(nil)
+  quests.restore(nil)
+  perks.restore(nil)
+  travel.restore(nil)
+  state.perk_bonus = 0
   if not config.options.save.enabled then
+    perks.apply()
     return false
   end
 
   local data, err = M.read()
   if err then
     vim.notify("VimQuest: " .. err .. " - starting a fresh run.", vim.log.levels.WARN)
+    perks.apply()
     return false
   end
   if not data then
+    perks.apply()
     return false
   end
 
   skills.restore(data.skills)
+  quests.restore(data.quests)
+  perks.restore(data.perks)
+  travel.restore(data.shrines)
+  state.perk_bonus = tonumber(data.perk_bonus) or 0
   state.zones_cleared = type(data.zones_cleared) == "table" and data.zones_cleared or {}
   local stats = type(data.stats) == "table" and data.stats or {}
   state.stats = {
@@ -113,7 +133,9 @@ function M.load_into_state()
   if state.player then
     state.player.xp = tonumber(data.player and data.player.xp) or 0
   end
-  skills.apply_to_player()
+  -- perks.apply() ends by calling skills.apply_to_player(), so health reflects
+  -- both levels and perks.
+  perks.apply()
   return true
 end
 

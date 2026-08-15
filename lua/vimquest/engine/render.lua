@@ -33,6 +33,8 @@ local HL = {
   VimQuestKill = { fg = "#ffffff", bg = "#7a2b2b", bold = true },
   VimQuestXp = { fg = "#8fbf6f", bold = true },
   VimQuestLocked = { fg = "#5b5768" },
+  VimQuestNpc = { fg = "#7fd0e0", bold = true },
+  VimQuestShrine = { fg = "#e0d070", bold = true },
 }
 
 function M.setup_highlights()
@@ -113,6 +115,23 @@ function M.draw()
         hl_group = m.hl or "VimQuestMobWord",
         priority = 150,
       })
+    end
+  end
+
+  -- NPCs and shrines are map characters too; they only need colour.
+  local zone = state.zone
+  for _, group in ipairs({
+    { list = zone and zone.npcs or {}, hl = "VimQuestNpc" },
+    { list = zone and zone.shrines or {}, hl = "VimQuestShrine" },
+  }) do
+    for _, item in ipairs(group.list) do
+      if item.row >= 0 and item.row < line_count then
+        pcall(vim.api.nvim_buf_set_extmark, buf, M.ns, item.row, item.col, {
+          end_col = item.col + 1,
+          hl_group = group.hl,
+          priority = 150,
+        })
+      end
     end
   end
 

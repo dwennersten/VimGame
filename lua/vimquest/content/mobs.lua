@@ -74,6 +74,32 @@ M.roster = {
     hint = "dd  -  delete the whole line;  D / d$ delete to end of line",
   },
 
+  -- Nesting is where text objects stop being a trick and start being a tool.
+  -- A count on the object reaches outward one pair at a time: di( takes the
+  -- innermost, 2di( the pair around it. Anything without the count is a miss,
+  -- which is the only way to make the distinction land.
+  vault_seal = {
+    kind = "vault_seal",
+    name = "vault seal",
+    text = "((seal))",
+    hl = "VimQuestMobTroll",
+    weakness = { "2[dc][ia][%(%)b]" },
+    teaches = { textobject = 16, count = 12 },
+    xp = 24,
+    hint = "2di(  -  reach past the inner brackets to the pair outside them",
+  },
+
+  vault_heart = {
+    kind = "vault_heart",
+    name = "the Nested Heart",
+    text = "(((heart)))",
+    hl = "VimQuestMobWraith",
+    weakness = { "3[dc][ia][%(%)b]" },
+    teaches = { textobject = 30, count = 30, operator = 10 },
+    xp = 60,
+    hint = "3ci(  -  three pairs deep. Count the brackets, then say the number",
+  },
+
   swarm = {
     kind = "swarm",
     name = "rot swarm",

@@ -77,7 +77,9 @@ function M.apply_to_player()
   local bonus = (level - 1) * config.options.skills.hp_per_level
   local base = config.options.player.max_hp
   p.level = level
-  p.max_hp = base + bonus
+  -- state.perk_hp is maintained by systems/perks.lua. Reading it rather than
+  -- requiring that module keeps skills free of a dependency cycle.
+  p.max_hp = base + bonus + (state.perk_hp or 0)
   p.hp = math.min(p.hp, p.max_hp)
 end
 
@@ -86,7 +88,7 @@ end
 ---@param multiplier number|nil combo multiplier
 ---@return integer total xp actually awarded
 function M.award(grants, multiplier)
-  multiplier = multiplier or 1
+  multiplier = (multiplier or 1) * (state.perk_xp_multiplier or 1)
   local total = 0
   local levelled = {}
 
