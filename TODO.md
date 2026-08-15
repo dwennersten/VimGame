@@ -2,7 +2,8 @@
 
 The working checklist. Tick items as they land; each segment ends with a commit and a
 playable build. Vision and locked decisions live in [DESIGN.md](DESIGN.md); session
-orientation in [CLAUDE.md](CLAUDE.md); feature rationale in
+orientation in [CLAUDE.md](CLAUDE.md); what already shipped and why in
+[CHANGELOG.md](CHANGELOG.md); feature rationale in
 [suggested_features.md](suggested_features.md) (F-numbers below refer to it); authoring
 rules in [CONTENT.md](CONTENT.md). **A full build spec for S4 is at the bottom of this
 file**, under short summaries of what S2 and S3 delivered.

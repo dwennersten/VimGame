@@ -185,6 +185,55 @@ Defined in `lua/vimquest/engine/entity.lua` as `M.behaviours.<name>(entity, ctx)
 `ctx = { zone, prow, pcol }`. Current set: `idle`, `chaser`, `pacer`. Add a function there
 to make a new one available to every zone.
 
+## The save file
+
+One file, `stdpath("data")/vimquest/save.json`, written on zone clear and on quit. It is
+the only thing VimQuest is ever allowed to write. `config.options.save.dir` overrides the
+directory — `tests/smoke.lua` points it at a temp directory so a test run can never touch
+real progress.
+
+**Only progression persists. A run does not.** Mobs, entities, the keylog, the journal, the
+combo meter and the current zone are all rebuilt from scratch every launch, which is why
+quitting and relaunching restores your levels but repopulates the world.
+
+Current shape, `schema_version = 2`:
+
+```jsonc
+{
+  "schema_version": 2,
+  "saved_at":      1755200000,           // os.time(), informational only
+  "skills":        { "operator": { "xp": 12, "level": 3 }, ... },
+  "quests":        { "<id>": { "status": "active", "progress": { "1": 2 }, "def": {...} } },
+  "perks":         { "sure_step": true },
+  "perk_bonus":    1,                    // perk points granted by quest rewards
+  "shrines":       { "a": { "zone": "02_coldbuffer", "row": 6, "col": 54, ... } },
+  "player":        { "xp": 240 },        // display total; levels live in `skills`
+  "zones_cleared": { "01_rotwood": true },
+  "stats":         { "kills": 31, "misses": 9, "best_combo": 5 }
+}
+```
+
+Two things that will bite:
+
+- **A radiant quest carries its own `def`.** Bounties are generated at runtime and have no
+  entry in `content/quests.lua`, so the definition rides on the record. `quests.definition`
+  checks the record first and falls back to the content file.
+- **JSON turns a sparse array into an object.** Objective progress `{[2]=1}` comes back as
+  `{["2"]=1}`, so `quests.restore` converts the keys back to numbers. Anything else keyed
+  by integer needs the same treatment.
+
+### Changing it
+
+Bumping `SCHEMA_VERSION` in `save/migrate.lua` **requires a migration from the previous
+version in the same commit** — this is invariant 9 in CLAUDE.md, not a preference. A
+migration takes the whole save at version N and returns it at N+1; the loader chains them,
+so old files walk forward one step at a time. `migrate.run` refuses a save from a *newer*
+build rather than mangling it.
+
+Restorers ignore anything they do not recognise (`skills.restore` drops unknown skills,
+`perks.restore` drops perks that no longer exist), so deleting content is safe without a
+migration. Adding a *field* needs one.
+
 ## Coordinate convention
 
 Engine-wide: `row` and `col` are **0-indexed**, matching the `nvim_buf_*` API. Cursor APIs

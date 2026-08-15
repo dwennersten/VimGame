@@ -1,7 +1,7 @@
 # Suggested Features — VimQuest
 
 Source: described idea (greenfield)
-Last updated: 2026-08-14
+Last updated: 2026-08-15 (after S3)
 
 All items below were accepted by the user in one batch. Tiers set the build order;
 "Segment" maps each to the roadmap in README.md.
@@ -22,7 +22,7 @@ All items below were accepted by the user in one batch. Tiers set the build orde
 - Why: Real-time damage must never continue while you are elsewhere.
 
 ### F4 — Versioned saves + migration
-- Tier: Essential | Status: Accepted | Segment: S2
+- Tier: Essential | Status: Accepted | Segment: S2 ✅ (schema 2 as of S3)
 - What: JSON save with `schema_version`, upgraded by `save/migrate.lua`.
 - Why: An update must never wipe progress.
 
@@ -42,9 +42,12 @@ All items below were accepted by the user in one batch. Tiers set the build orde
 - Why: Fastest way to learn the counter to a mob type.
 
 ### F8 — Stamina economy punishing spam
-- Tier: Important | Status: Accepted | Segment: S1 ✅ (core) / S2 (tuning)
+- Tier: Important | Status: Accepted | Segment: S1 ✅ (core) / S2 ✅ (tuning)
 - What: `hjkl` costs 2 stamina each; efficient motions cost 0.5. Empty stamina bleeds HP.
+  A wrong strike also costs stamina; the `sure_step` perk halves the `hjkl` price.
 - Why: Structurally prevents the single worst vim habit.
+- Note: S2 found that `vim.on_key` reports Neovim's internal key expansion too, so `x` was
+  being charged three times. Only typed keys are counted now.
 
 ### F9 — Spaced repetition on weak commands
 - Tier: Important | Status: Accepted | Segment: S4
@@ -52,9 +55,12 @@ All items below were accepted by the user in one batch. Tiers set the build orde
 - Why: Retention, not just exposure.
 
 ### F10 — Composition bosses
-- Tier: Important | Status: Accepted | Segment: S3
+- Tier: Important | Status: Accepted | Segment: S3 ✅
 - What: Bosses only die to count+operator+textobject combos (`2ci(`, `d2f;`).
 - Why: Forces real fluency instead of single-key habits.
+- Shipped: the vault seal (`2di(`) and the Nested Heart (`3ci(`) in `04_vaults`. Both are
+  ordinary roster entries — the `weakness` matcher already handled counts, so a
+  composition boss needed no engine work at all.
 
 ### F11 — Terminal capability detection
 - Tier: Important | Status: Accepted | Segment: S6

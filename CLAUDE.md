@@ -10,8 +10,22 @@ Read these before changing anything:
 | --- | --- |
 | `DESIGN.md` | **The whole vision and why.** Locked decisions, vim-verb → game-verb mapping, progression model, curriculum map. Read this first. |
 | `TODO.md` | **What to build next.** Segment checklist; S4 has a full build spec at the bottom, above it short "what S2/S3 delivered" sections explaining how combat and the world loop work. |
-| `CONTENT.md` | Zone and mob data schema, behaviours, module map. Needed for any content work. |
+| `CONTENT.md` | Zone, mob, NPC, quest and perk schemas; the save file; module map. Needed for any content work. |
+| `CHANGELOG.md` | **What already shipped and why.** Read it when something in the code looks arbitrary and you want to know whether it was. |
 | `suggested_features.md` | The 22 accepted features with rationale (F-numbers referenced from TODO). |
+
+## Starting a session
+
+1. **Run the smoke test first** (command below). It should print `SMOKE PASS` — 43 checks
+   as of S3. A green baseline before you touch anything tells you whether a later failure
+   is yours.
+2. **Read the "what S2/S3 delivered" sections in `TODO.md`.** They explain how combat and
+   the world loop actually work, and they exist so you do not re-derive it from the source.
+3. **Pick up at the first unchecked box** in the lowest open segment of `TODO.md`. S4 has a
+   full build spec at the bottom of that file.
+
+Before you finish: smoke test green, boxes ticked, `README.md` roadmap in sync, `CHANGELOG.md`
+given a section if a segment shipped, and a commit with a real message body.
 
 ## Working agreement
 
@@ -61,7 +75,36 @@ $env:NVIM_APPNAME='vimquest'
 ```
 
 Grow `tests/smoke.lua` alongside features; it is the only regression net until plenary
-lands in S6.
+lands in S6. Three things about it are not obvious from reading it:
+
+- **Combat tests press real keys**, via `nvim_feedkeys(keys, "xt", false)`. The `t` matters:
+  without it the keys arrive untyped and `engine/input.lua` correctly ignores them, so the
+  strike lands in the buffer but combat never sees a command and every kill reads as a miss.
+- **Saving is redirected** to a temp directory by `vq.setup({ save = { dir = ... } })` at
+  the top of the file. Never let a test run write to the real save path.
+- **Adding a zone means adding its id to `ALL_ZONES`**, which drives the structural checks:
+  row widths, walkable spawn, exits that are standable and point at zones that exist,
+  reachable NPCs and shrines, and no mob embedded in a wall.
+
+## Keys already claimed
+
+Check here before binding anything new. All are buffer-local to the game buffer, and every
+one is bound in `set_keymaps` in `init.lua` except where noted.
+
+| Key | Does | Implemented in |
+| --- | --- | --- |
+| `<Esc><Esc>` | quit — invariant 7, never rebind | `init.lua` |
+| `<F1>` | journal | `ui/journal.lua` |
+| `<F2>` | pause | `init.lua` |
+| `<F3>` | cheatsheet | `ui/cheatsheet.lua` |
+| `<F4>` | quest log | `ui/questlog.lua` |
+| `<F5>` | skill tree | `ui/skilltree.lua` |
+| `m` `'` `` ` `` | shrine binding and fast travel | bound by `systems/travel.lua:attach` |
+| `j` `k` `<CR>` `1`–`9` | menu selection, inside panels only | `ui/menu.lua` |
+| `<CR>` `<Esc>` `q` | dismiss a panel | `ui/panel.lua` |
+
+`<F6>` onward is free. Everything else the player presses is meant to reach vim untouched —
+that is the entire premise, so intercept a key only when the game genuinely redefines it.
 
 ## Module map (short form — full table in CONTENT.md)
 

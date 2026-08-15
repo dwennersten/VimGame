@@ -113,6 +113,7 @@ not a new command — just three known ones said in one breath (`3ci(`).
 | --- | --- |
 | [DESIGN.md](DESIGN.md) | The vision: locked decisions, vim-verb → game-verb mapping, progression model, curriculum map, playtest findings |
 | [TODO.md](TODO.md) | Build checklist per segment, plus a full S4 build spec |
+| [CHANGELOG.md](CHANGELOG.md) | What shipped in each segment and why it is shaped that way |
 | [CONTENT.md](CONTENT.md) | Zone, mob, NPC, quest and perk schemas; behaviours; module map |
 | [CLAUDE.md](CLAUDE.md) | Orientation and hard invariants for an AI session |
 | [suggested_features.md](suggested_features.md) | The 22 accepted features and why |
