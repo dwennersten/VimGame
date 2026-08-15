@@ -182,6 +182,10 @@ bounty for it appear on the board; open the skill report and see which commands 
       only checked by `tests/smoke.lua`, which does cover both zones)
 - [ ] Maps are ASCII-only by design (byte columns must equal screen cells). Unicode tiles
       need a width-aware renderer before they can be used.
+- [ ] **The Long Ledger is 76 columns wide** and nothing checks the terminal. On a narrower
+      window it side-scrolls (`wrap=false`, `sidescrolloff=0`), which is playable but makes
+      `$` land off-screen. Either cap zone width at ~64 or teach the renderer to report a
+      too-small terminal — the capability detection in S6 (F11) is the natural home.
 - [ ] `pacer` behaviour is implemented but still unused. The Ledger and the Vaults have no
       roaming creatures at all, so both are currently puzzle zones with no clock — the
       first thing to try if either feels flat.
