@@ -110,7 +110,8 @@ return {
     [">"] = {
       type = "exit",
       leaves = ">",
-      text = "You step onto the portal. The Awakening releases you.",
+      to = "01_rotwood",
+      text = "You step onto the portal. The Awakening releases you. The Rotwood waits.",
     },
 
     ["g"] = {

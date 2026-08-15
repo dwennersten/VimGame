@@ -33,6 +33,31 @@ M.defaults = {
     exhaustion = 1, -- hp lost per second while stamina is empty
   },
 
+  -- Combat: operators are attacks. A wrong edit never corrupts the map, it just
+  -- costs stamina, so experimenting is cheap and the map is always authoritative.
+  combat = {
+    miss_stamina = 8, -- stamina burned by an edit that hits terrain or the wrong mob
+    flash_ms = 300, -- how long a kill highlight lingers
+    combo_window_ms = 4000, -- a kill this soon after the last one extends the combo
+    combo_bonus = 0.25, -- xp multiplier added per combo step
+    max_combo_bonus = 2.0, -- cap on that multiplier
+  },
+
+  skills = {
+    base_level_xp = 20, -- xp from level 1 to 2
+    level_xp_step = 15, -- extra xp required per level after that
+    hp_per_level = 1, -- max_hp granted per character level
+  },
+
+  save = {
+    enabled = true,
+    autosave = true, -- write on zone clear and on quit
+    -- Where progress lives. nil means stdpath("data")/vimquest/, the only place
+    -- VimQuest is ever allowed to write. Tests point this at a temp directory so
+    -- a test run can never touch real progress.
+    dir = nil,
+  },
+
   ui = {
     winbar = true,
     bar_width = 10,

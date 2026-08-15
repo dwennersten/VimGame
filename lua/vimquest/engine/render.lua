@@ -23,6 +23,16 @@ local HL = {
   VimQuestPanel = { fg = "#e0dcec", bg = "#1a1826" },
   VimQuestPanelBorder = { fg = "#7d6bb0", bg = "#1a1826" },
   VimQuestExit = { fg = "#6fd3bf", bold = true },
+  -- Text-mobs: each kind reads differently at a glance, so you can pick the
+  -- right command before you are standing on top of it.
+  VimQuestMobGrub = { fg = "#c9d05b", bold = true },
+  VimQuestMobWord = { fg = "#e07f3f", bold = true },
+  VimQuestMobImp = { fg = "#c07fe0", bold = true },
+  VimQuestMobTroll = { fg = "#e0c04a", bold = true },
+  VimQuestMobWraith = { fg = "#8f8fe0", bold = true },
+  VimQuestKill = { fg = "#ffffff", bg = "#7a2b2b", bold = true },
+  VimQuestXp = { fg = "#8fbf6f", bold = true },
+  VimQuestLocked = { fg = "#5b5768" },
 }
 
 function M.setup_highlights()
@@ -92,6 +102,20 @@ function M.draw()
   vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
 
   local line_count = vim.api.nvim_buf_line_count(buf)
+
+  -- Text-mobs are real buffer text, so they are coloured in place rather than
+  -- overlaid. Dead ones simply stop being drawn - the map has already reclaimed
+  -- their cells.
+  for _, m in ipairs(state.mobs) do
+    if m.alive and m.row >= 0 and m.row < line_count then
+      pcall(vim.api.nvim_buf_set_extmark, buf, M.ns, m.row, m.col, {
+        end_col = m.col + #m.text,
+        hl_group = m.hl or "VimQuestMobWord",
+        priority = 150,
+      })
+    end
+  end
+
   for _, e in ipairs(state.entities) do
     if e.hp > 0 and e.row >= 0 and e.row < line_count then
       pcall(vim.api.nvim_buf_set_extmark, buf, M.ns, e.row, e.col, {

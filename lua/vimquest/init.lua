@@ -14,11 +14,15 @@ local render = require("vimquest.engine.render")
 local collision = require("vimquest.engine.collision")
 local input = require("vimquest.engine.input")
 local entity = require("vimquest.engine.entity")
+local combat = require("vimquest.engine.combat")
 local tick = require("vimquest.engine.tick")
+local skills = require("vimquest.systems.skills")
+local save = require("vimquest.save")
 local hud = require("vimquest.ui.hud")
 local panel = require("vimquest.ui.panel")
 local dialogue = require("vimquest.ui.dialogue")
 local journal = require("vimquest.ui.journal")
+local cheatsheet = require("vimquest.ui.cheatsheet")
 
 local M = {}
 
@@ -44,6 +48,9 @@ local function set_keymaps(buf)
   map("<F2>", function()
     M.toggle_pause()
   end, "VimQuest: pause / resume")
+  map("<F3>", function()
+    cheatsheet.toggle()
+  end, "VimQuest: cheatsheet of everything you have learned")
 end
 
 ---@param zone_id string|nil
@@ -57,6 +64,10 @@ function M.start(zone_id)
 
   state.reset()
   state.player = state.new_player(config.options)
+  -- Skills, xp and cleared zones carry over between runs; everything else is
+  -- fresh. apply_to_player turns those levels back into max health.
+  save.load_into_state()
+  skills.apply_to_player()
 
   render.open(zone)
   for _, spec in ipairs(zone.entities) do
@@ -68,13 +79,15 @@ function M.start(zone_id)
   set_keymaps(state.buf)
 
   state.running = true
+  -- Unlocks the buffer and paints the text-mobs, but only in a combat zone.
+  combat.attach(zone)
 
   -- Opening briefing: the whole zone's premise and controls, read at your pace.
   local brief = zone.brief or { zone.intro or "" }
   state.say(brief)
   dialogue.show(brief, {
     title = zone.name,
-    footer = "<CR> begin   -   <F1> journal anytime   -   <F2> pause",
+    footer = "<CR> begin   -   <F1> journal   -   <F2> pause   -   <F3> cheatsheet",
   })
 
   tick.start()
@@ -92,51 +105,82 @@ function M.complete(ex)
   local p = state.player
   local seconds = math.floor((state.tick_count * config.options.tick_ms) / 1000)
   local zone_id = state.zone.id
+  local zone_name = state.zone.name
+  local next_id = ex.to
+
+  state.zones_cleared[zone_id] = true
+  if config.options.save.autosave then
+    save.write()
+  end
+
+  local alive, total = combat.census()
   local lines = {
     ex.text or "You step through the portal. The Buffer quiets behind you.",
     "",
-    ("Zone      %s"):format(state.zone.name),
+    ("Zone      %s"):format(zone_name),
     ("Time      %dm %02ds"):format(math.floor(seconds / 60), seconds % 60),
     ("Keys      %d pressed"):format(#state.keylog),
     ("Health    %d/%d"):format(p.hp, p.max_hp),
-    ("Journal   %d entries  (<F1> in game to re-read)"):format(#state.journal),
-    "",
-    "Next: operator combat arrives with The Rotwood - x, dw, di\", ca(",
-    "will become attacks, and the map itself becomes editable.",
   }
+  if total > 0 then
+    table.insert(lines, ("Slain     %d of %d   (best combo x%d)"):format(total - alive, total, state.stats.best_combo))
+    table.insert(lines, ("Misses    %d strikes went wide"):format(state.stats.misses))
+  end
+  table.insert(lines, ("Journal   %d entries  (<F1> in game to re-read)"):format(#state.journal))
+  table.insert(lines, "")
+  table.insert(lines, "Skills")
+  vim.list_extend(lines, skills.report())
+  table.insert(lines, "")
+  table.insert(lines, "Progress saved. Levels and xp carry into your next run.")
 
-  local replay = false
+  local footer = "<CR> leave   -   r replay this zone"
+  if next_id then
+    footer = "<CR> leave   -   r replay   -   n on to the next zone"
+  end
+
+  local go_to = nil
   local pan
   pan = panel.open({
     lines = lines,
-    title = "ZONE CLEARED - " .. state.zone.name,
-    footer = "<CR> leave   -   r replay this zone",
+    title = "ZONE CLEARED - " .. zone_name,
+    footer = footer,
     close_keys = { "<CR>", "<Esc>", "q" },
     on_close = function()
       M.quit()
-      if replay then
+      if go_to then
         vim.schedule(function()
-          M.start(zone_id)
+          M.start(go_to)
         end)
       end
     end,
   })
-  vim.keymap.set("n", "r", function()
-    replay = true
-    pan.close()
-  end, { buffer = pan.buf, nowait = true, silent = true })
+  local jump = function(id)
+    return function()
+      go_to = id
+      pan.close()
+    end
+  end
+  vim.keymap.set("n", "r", jump(zone_id), { buffer = pan.buf, nowait = true, silent = true })
+  if next_id then
+    vim.keymap.set("n", "n", jump(next_id), { buffer = pan.buf, nowait = true, silent = true })
+  end
 end
 
 function M.quit()
   if not state.running then
     return
   end
+  if config.options.save.autosave then
+    save.write()
+  end
   dialogue.close()
   journal.close()
+  cheatsheet.close()
   state.running = false
   tick.stop()
   input.detach()
   collision.detach()
+  combat.detach()
   render.close()
   state.reset()
   vim.notify("VimQuest: the Buffer releases you.", vim.log.levels.INFO)
@@ -148,6 +192,32 @@ function M.toggle_pause()
   end
   state.paused = not state.paused
   hud.render()
+end
+
+---Wipe saved progress. Destructive, so it asks first whenever there is a human
+---at the other end.
+function M.reset()
+  -- Resetting mid-run is pointless: quitting would write the save straight back.
+  if state.running then
+    vim.notify("VimQuest: leave the world first (<Esc><Esc>), then reset.", vim.log.levels.WARN)
+    return
+  end
+  if not save.exists() then
+    vim.notify("VimQuest: no saved progress to reset.", vim.log.levels.INFO)
+    return
+  end
+  if #vim.api.nvim_list_uis() > 0 then
+    local answer = vim.fn.confirm("Delete all VimQuest progress (skills, xp, zones cleared)?", "&No\n&Yes", 1)
+    if answer ~= 2 then
+      vim.notify("VimQuest: progress kept.", vim.log.levels.INFO)
+      return
+    end
+  end
+  if save.delete() then
+    vim.notify("VimQuest: progress erased. The Buffer forgets you.", vim.log.levels.INFO)
+  else
+    vim.notify("VimQuest: could not delete " .. save.path(), vim.log.levels.ERROR)
+  end
 end
 
 ---Entry point used by the :VimQuest command.
@@ -165,6 +235,8 @@ function M.command(args)
     M.quit()
   elseif sub == "pause" then
     M.toggle_pause()
+  elseif sub == "reset" then
+    M.reset()
   else
     vim.notify("VimQuest: unknown subcommand '" .. sub .. "'", vim.log.levels.ERROR)
   end

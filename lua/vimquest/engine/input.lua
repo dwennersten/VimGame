@@ -1,8 +1,14 @@
 -- Keystroke recorder and stamina charging.
 --
 -- Every key you press while the game is running is logged with a timestamp.
--- Later segments read this log for keystroke-golf scoring, ghost replays and
--- adaptive weakness detection, so the format is deliberately simple and stable.
+-- Combat reads the tail of this log to decide which command earned a kill, and
+-- later segments read it for keystroke-golf scoring, ghost replays and adaptive
+-- weakness detection, so the format is deliberately simple and stable.
+--
+-- Only *typed* keys are recorded. vim.on_key also reports the keys Neovim
+-- generates internally while executing a command - pressing x really feeds
+-- "x", "d", "l" - and counting those would both overcharge stamina and make the
+-- keylog describe vim's internals instead of the player's fingers.
 
 local state = require("vimquest.state")
 local config = require("vimquest.config")
@@ -36,7 +42,7 @@ function M.attach()
     if vim.api.nvim_get_current_buf() ~= state.buf then
       return
     end
-    local k = typed ~= "" and typed or key
+    local k = typed or ""
     if k == "" then
       return
     end

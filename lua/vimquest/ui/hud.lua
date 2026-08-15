@@ -55,15 +55,30 @@ function M.render()
   local w = config.options.ui.bar_width
   local stam_hl = p.stamina <= 0 and "VimQuestHudBad" or "VimQuestHudDim"
 
+  -- Combat readouts only appear in zones that have something to fight.
+  local foes = ""
+  if #state.mobs > 0 then
+    local alive = 0
+    for _, m in ipairs(state.mobs) do
+      if m.alive then
+        alive = alive + 1
+      end
+    end
+    foes = "%#" .. (alive > 0 and "VimQuestHudWarn" or "VimQuestHudGood") .. "#  FOES " .. alive
+  end
+  local combo = state.combo > 1 and ("%#VimQuestXp#  COMBO x" .. state.combo) or ""
+
   local parts = {
     "%#VimQuestHudText# VQ ",
     "%#" .. hp_hl(p.hp, p.max_hp) .. "#HP [" .. bar(p.hp, p.max_hp, w) .. "] ",
     string.format("%d/%d ", p.hp, p.max_hp),
     "%#" .. stam_hl .. "# STA [" .. bar(p.stamina, p.max_stamina, w) .. "] ",
     "%#VimQuestHudText# LVL " .. p.level .. "  XP " .. p.xp,
+    foes,
+    combo,
     "%#VimQuestHudDim#   " .. esc(state.zone and state.zone.name or ""),
     state.paused and "%#VimQuestHudWarn#   [PAUSED]" or "",
-    "%#VimQuestHudDim#   <F1> journal  <F2> pause  <Esc><Esc> quit",
+    "%#VimQuestHudDim#   <F1> journal  <F3> cheatsheet  <Esc><Esc> quit",
   }
   vim.wo[win].winbar = table.concat(parts)
 

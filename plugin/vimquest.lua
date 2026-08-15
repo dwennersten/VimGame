@@ -10,14 +10,14 @@ vim.api.nvim_create_user_command("VimQuest", function(opts)
   require("vimquest").command(opts.fargs)
 end, {
   nargs = "*",
-  desc = "VimQuest: start / quit / pause the game",
+  desc = "VimQuest: start / quit / pause / reset the game",
   complete = function(_, line)
     local args = vim.split(vim.trim(line), "%s+")
     if #args <= 2 then
-      return { "start", "quit", "pause", "zone" }
+      return { "start", "quit", "pause", "zone", "reset" }
     end
     if args[2] == "zone" or args[2] == "start" then
-      return { "00_awakening" }
+      return { "00_awakening", "01_rotwood" }
     end
     return {}
   end,

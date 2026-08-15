@@ -17,8 +17,15 @@ M.buf = nil ---@type integer|nil
 M.win = nil ---@type integer|nil
 M.tab = nil ---@type integer|nil
 M.zone = nil ---@type table|nil
-M.entities = {} ---@type table[]
+M.entities = {} ---@type table[] roaming overlay creatures (extmarks)
+M.mobs = {} ---@type table[] text-mobs: creatures that ARE buffer text, killed by editing
 M.player = nil ---@type VimQuestPlayer|nil
+M.skills = {} ---@type table<string, {xp:number, level:integer}> persisted between runs
+M.zones_cleared = {} ---@type table<string, boolean> persisted between runs
+M.stats = { kills = 0, misses = 0, best_combo = 0 } ---@type table persisted totals
+M.combo = 0 ---@type integer consecutive kills inside the combo window
+M.last_kill_ms = 0
+M.last_attack = nil ---@type string|nil last successful attack, so '.' knows what it repeats
 M.keylog = {} ---@type table[]
 M.last_hit_ms = 0
 M.last_exhaust_ms = 0
@@ -50,7 +57,14 @@ function M.reset()
   M.tab = nil
   M.zone = nil
   M.entities = {}
+  M.mobs = {}
   M.player = nil
+  M.skills = {}
+  M.zones_cleared = {}
+  M.stats = { kills = 0, misses = 0, best_combo = 0 }
+  M.combo = 0
+  M.last_kill_ms = 0
+  M.last_attack = nil
   M.keylog = {}
   M.last_hit_ms = 0
   M.last_exhaust_ms = 0
